@@ -15,21 +15,26 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include <setjmp.h>
-#include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
-// Types
-typedef struct value *value;
-typedef struct env *env;
+// TODO: Readline for input
+// TODO: Parse with regex
+// TODO: Continuations (for io as well?)
+
+// Stuff
+#include "repl.h"
+#include "env.h"
+#include "value.h"
+#include "parser.h"
+#include "eval.h"
 
 // Functions
-__attribute__((noreturn)) void repl_error(const char *fmt, ...);
 int is_special(const char *sym);
-value eval_special(value head, value args, env e);
-value eval(value v, env e);
+
 
 /**
  * Alloc tracking
@@ -69,7 +74,9 @@ typedef enum {
   TOK_RPAREN,
   TOK_QUOTE,
   TOK_SYMBOL,
-  TOK_INT
+  TOK_INT,
+  TOK_BOOL,
+  TOK_STRING
 } tokenType;
 
 typedef struct {
@@ -108,7 +115,8 @@ token token_getnext(FILE *in) {
     return tok;
   }
 
-  char buf[1024]; // TODO: Dynamic
+  char buf[1024];
+  tok.text = buf;
   skip_ws(in);
   int c = fgetc(in);
 
@@ -132,6 +140,20 @@ token token_getnext(FILE *in) {
     return tok;
   }
 
+  if (c == '#') {
+    tok.type = TOK_BOOL;
+    buf[0] = '#';
+    buf[1] = fgetc(in);
+    buf[2] = '\0';
+
+    if(!strchr("tf",buf[1])) 
+      repl_error("Malformated input: %s\n", buf);
+
+    //tok.text = strdup(buf);
+
+    return tok;
+  }
+  
   if (isdigit(c) || (c == '-' && isdigit(peek(in)))) {
     int i = 0;
     buf[i++] = c;
@@ -139,19 +161,30 @@ token token_getnext(FILE *in) {
       buf[i++] = fgetc(in);
     buf[i] = '\0';
     tok.type = TOK_INT;
-    tok.text = strdup(buf);
+
+    //tok.text = strdup(buf);
+
     return tok;
   }
 
-  if (isalpha(c) || strchr("+-*/<=>!?_", c)) {
+  if (isalpha(c) || strchr("+-*/<=>!?_\"", c)) {
     int i = 0;
     buf[i++] = c;
-    while (isalnum(peek(in)) || strchr("+-*/<=>!?_", peek(in)))
+    while (isalnum(peek(in)) || strchr(":+-*/<=>!?_", peek(in)))
       buf[i++] = fgetc(in);
     buf[i] = '\0';
+
     tok.type = TOK_SYMBOL;
-    tok.text = strdup(buf);
-    return tok;
+    if (buf[0] == '\"' && buf[i - 1] == '\"') {
+      tok.type = TOK_STRING;
+      tok.text = track_malloc(i);
+      buf[i - 1] = '\0';
+      strcpy(tok.text, buf + 1);
+    }
+
+    if (!strchr(tok.text, '\"'))
+      return tok;
+    repl_error("Stray \" in input");
   }
 
   repl_error("Unexpected char: '%c'\n", c);
@@ -167,7 +200,9 @@ typedef enum {
   TYPE_NIL,
   TYPE_FUNCTION,
   TYPE_SPECIAL,
-  TYPE_CLOSURE
+  TYPE_CLOSURE,
+  TYPE_BOOL,
+  TYPE_STRING
 } valueType;
 
 // Value types
@@ -180,23 +215,37 @@ typedef struct {
 } closure;
 
 // Value Struct
-struct value {
+struct value_s {
   valueType type;
   union {
     struct {
       value car;
       value cdr;
     } cons;
-    int i;
+    int64_t i;
     char *sym;
+    char *string;
     function fn;
     closure clo;
+    int bool;
   };
 };
 
 value value_alloc(valueType type) {
-  value v = track_malloc(sizeof(struct value));
+  value v = track_malloc(sizeof(struct value_s));
   v->type = type;
+  return v;
+}
+
+value value_new_string(char *str) {
+  value v = value_alloc(TYPE_STRING);
+  v->string = str;
+  return v;
+}
+
+value value_new_bool(int b) {
+  value v = value_alloc(TYPE_BOOL);
+  v->bool = b;
   return v;
 }
 
@@ -239,21 +288,27 @@ value value_new_function(function f) {
 }
 
 value value_new_nil() {
-  static struct value nil = {.type = TYPE_NIL};
+  static struct value_s nil = {.type = TYPE_NIL};
   return &nil;
 }
 
 void value_print(value v) {
   switch (v->type) {
   case TYPE_INT:
-    printf("%d", v->i);
+    printf("%li", v->i);
     break;
+    
   case TYPE_SYMBOL:
     printf("%s", v->sym);
     break;
+  case TYPE_STRING:
+    printf("%s", v->string);
+    break;
+    
   case TYPE_NIL:
     printf("()");
     break;
+    
   case TYPE_CONS:
     printf("(");
     while (v->type == TYPE_CONS) {
@@ -268,9 +323,17 @@ void value_print(value v) {
     }
     printf(")");
     break;
+    
+  case TYPE_BOOL:
+    if (v->bool)
+      printf("#t");
+    else
+      printf("#f");
+    break;
+    
   case TYPE_CLOSURE:
   case TYPE_FUNCTION:
-  case TYPE_SPECIAL:
+   case TYPE_SPECIAL:
     printf("<function>");
         break;
 
@@ -287,13 +350,13 @@ void value_print(value v) {
  *
  * Todo: Do I need to remove duplicates? (later, later)
  */
-struct env {
+struct env_s {
     env parent;   // Outer scope environment (NULL for global)
     value bindings;       // alist of (symbol . value) pairs for this scope
 };
 
 env env_new(env parent) {
-    env e = track_malloc(sizeof(struct env));
+    env e = track_malloc(sizeof(struct env_s));
     e->parent = parent;
     e->bindings = value_new_nil(); 
     return e;
@@ -368,13 +431,91 @@ value builtin_sub(value args, env e) {
   return value_new_int(result);
 }
 
+value builtin_mult(value args, env e) {
+  int product = 1;
+
+  while (args->type == TYPE_CONS) {
+    value v = args->cons.car;
+    if (v->type != TYPE_INT)
+      repl_error("Expected int");
+
+    product *= v->i;
+    if(product < v->i)
+      repl_error("Multiplication overflow");
+    args = args->cons.cdr;
+  }
+
+  return value_new_int(product);
+}
+
+
+int bool_istrue(value args, env e) {
+    if (args->type == TYPE_BOOL)
+        return args->bool;
+    if (args->type == TYPE_NIL)
+        return 0;
+    
+    return 1; // everything else true
+}
+
+value builtin_istrue(value args, env e) {
+  return value_new_bool(bool_istrue(args,e));
+}
+
+int bool_isnumber(value args, env e) {
+  if(args->type == TYPE_INT)
+    return 1;
+
+  return 0;
+}
+
+value builtin_isnumber(value args, env e) {
+  return value_new_bool(bool_isnumber(args,e));
+}
+
+value builtin_lequ(value args, env e) {
+    if (args->type == TYPE_NIL) {
+        // Combosable logic dictates
+        return value_new_bool(1);
+    }
+
+    
+    value prev = args->cons.car;
+    if (!bool_isnumber(prev,e)) {
+        repl_error("<=: arguments must be numbers");
+    }
+
+    args = args->cons.cdr;
+
+    while (args->type != TYPE_NIL) {
+        value curr = args->cons.car;
+        if (!bool_isnumber(curr,e)) {
+            repl_error("<=: arguments must be numbers");
+        }
+
+        // Compare prev <= curr
+        if (prev->i > curr->i) 
+            return value_new_bool(0);
+
+        prev = curr;
+        args = args->cons.cdr;
+    }
+
+    return value_new_bool(1);
+}
+
 struct builtin_functions {
   char *name;
   function fn;
 };
 
 struct builtin_functions startup[] = {
-    {"add", builtin_add}, {"sub", builtin_sub}, {NULL, NULL}};
+    {"+", builtin_add},
+    {"-", builtin_sub},
+    {"*", builtin_mult},
+    {"true?", builtin_istrue},
+    {"<=", builtin_lequ}, 
+    {NULL, NULL}};
 
 env startup_load_builtins() {
   env e = env_new(NULL);
@@ -452,12 +593,40 @@ value eval_apply_closure(value fn, value arg_exprs, env calling_env) {
   return result;
 }
 
+value eval_if(value args, env env) {
+    if (args->type != TYPE_CONS)
+        repl_error("if: missing arguments");
+
+    // Extract predicate
+    value predicate = args->cons.car;
+
+    // Extract then branch
+    if (args->cons.cdr->type != TYPE_CONS)
+        repl_error("if: missing then branch");
+    
+    value then_branch = args->cons.cdr->cons.car;
+
+    // Extract else branch (optional)
+    value else_branch = value_new_nil();
+    if (args->cons.cdr->cons.cdr->type == TYPE_CONS)
+        else_branch = args->cons.cdr->cons.cdr->cons.car;
+
+    // Evaluate predicate
+    value cond = eval(predicate, env);
+
+    if (bool_istrue(cond,env))
+        return eval(then_branch, env);
+    else
+        return eval(else_branch, env);
+}
+
 
 value eval(value v, env e) {
         switch (v->type) {
         case TYPE_INT:
         case TYPE_NIL:
         case TYPE_FUNCTION:
+	case TYPE_BOOL:
         return v;
 
         case TYPE_SYMBOL:
@@ -499,7 +668,7 @@ static const char *special_forms[] = {"lambda", "define", "quote",
                                       "if",     "let",    NULL};
 
 static const function special_handlers[] = {eval_lambda, eval_define,
-                                            eval_quote, eval_np, eval_np};
+                                            eval_quote, eval_if, eval_np};
 
 int is_special(const char *sym) {
   for (int i = 0; special_forms[i] != NULL; i++)
@@ -520,7 +689,6 @@ value eval_special(value head, value args,env e) {
 /**
  * Simple parser
  */
-value parse_expression(FILE *in);
 
 value parse_list(FILE *in) {
   token t = token_getnext(in);
@@ -547,11 +715,17 @@ value parse_expression(FILE *in) {
         value_new_symbol("quote"),
         value_new_cons(parse_expression(in), value_new_nil()));
 
+  case TOK_BOOL:
+    return value_new_bool(t.text[1] == 't');
+    
   case TOK_INT:
     return value_new_int(atoi(t.text));
 
   case TOK_SYMBOL:
     return value_new_symbol(t.text);
+
+  case TOK_STRING:
+    return value_new_string(t.text);
 
   case TOK_RPAREN:
     repl_error("Unexpected ')' outside list");
@@ -564,44 +738,6 @@ value parse_expression(FILE *in) {
   }
 }
 
-jmp_buf repl_env;
-
-void repl_error(const char *fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
-
-  fprintf(stderr, "Error: ");
-  vfprintf(stderr, fmt, ap);
-  fprintf(stderr, "\n");
-
-  va_end(ap);
-  longjmp(repl_env, 1);
-}
-
-void repl(env e) {
-  char line[1024];
-
-  for (;;) {
-    if (setjmp(repl_env) != 0) {
-      // After an error
-      printf("Error recovered.\n");
-    }
-
-    printf("lisp> ");
-    if (!fgets(line, sizeof(line), stdin))
-      break;
-
-    FILE *input = fmemopen(line, strlen(line), "r");
-    value expr = parse_expression(input);
-    fclose(input);
-
-    value result = eval(expr, e);
-    value_print(result);
-    printf("\n");
-  }
-
-  printf("bye.\n");
-}
 
 int main() {
   // Setup free on exit
