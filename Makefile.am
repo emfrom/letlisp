@@ -1,6 +1,8 @@
 AUTOMAKE_OPTIONS = subdir-objects
 
-AM_CPPFLAGS = -I$(srcdir)/src -Isrc $(READLINE_CFLAGS)
+AM_CPPFLAGS = -I$(srcdir)/src -Isrc \
+	$(READLINE_CFLAGS) \
+	$(GC_CFLAGS)	
 
 bin_PROGRAMS = minilisp
 minilisp_SOURCES = \
@@ -8,4 +10,6 @@ minilisp_SOURCES = \
 	src/repl.c
 
 
-minilisp_LDADD = $(READLINE_LIBS)
+minilisp_LDADD = \
+	$(READLINE_LIBS) \
+	$(GC_LIBS)

@@ -20,8 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <gc/gc.h>
 
-// TODO: Readline for input
 // TODO: Parse with regex
 // TODO: Continuations (for io as well?)
 
@@ -35,35 +35,6 @@
 // Functions
 int is_special(const char *sym);
 
-
-/**
- * Alloc tracking
- */
-void **alloc_list = NULL;
-size_t alloc_count = 0;
-
-void *track_malloc(size_t size) {
-  void *ptr = malloc(size);
-  if (!ptr) {
-    fprintf(stderr, "Out of memory\n");
-    exit(EXIT_FAILURE);
-  }
-
-  alloc_list = realloc(alloc_list, (alloc_count + 1) * sizeof(void *));
-  if (!alloc_list) {
-    fprintf(stderr, "Out of memory\n");
-    exit(EXIT_FAILURE);
-  }
-  alloc_list[alloc_count++] = ptr;
-
-  return ptr;
-}
-
-void free_all_allocs(void) {
-  for (size_t i = 0; i < alloc_count; ++i)
-    free(alloc_list[i]);
-  free(alloc_list);
-}
 
 /**
  * Minimalist lexer
@@ -177,7 +148,7 @@ token token_getnext(FILE *in) {
     tok.type = TOK_SYMBOL;
     if (buf[0] == '\"' && buf[i - 1] == '\"') {
       tok.type = TOK_STRING;
-      tok.text = track_malloc(i);
+      tok.text = GC_MALLOC(i);
       buf[i - 1] = '\0';
       strcpy(tok.text, buf + 1);
     }
@@ -232,7 +203,7 @@ struct value_s {
 };
 
 value value_alloc(valueType type) {
-  value v = track_malloc(sizeof(struct value_s));
+  value v = GC_MALLOC(sizeof(struct value_s));
   v->type = type;
   return v;
 }
@@ -356,7 +327,7 @@ struct env_s {
 };
 
 env env_new(env parent) {
-    env e = track_malloc(sizeof(struct env_s));
+    env e = GC_MALLOC(sizeof(struct env_s));
     e->parent = parent;
     e->bindings = value_new_nil(); 
     return e;
@@ -740,8 +711,6 @@ value parse_expression(FILE *in) {
 
 
 int main() {
-  // Setup free on exit
-  atexit(free_all_allocs);
 
   // Load builtins
   env global_env;
