@@ -13,17 +13,23 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <assert.h>
 #include <ctype.h>
+#include <setjmp.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
-#include <setjmp.h>
-#include <stdarg.h>
+
+// Types
+typedef struct value *value;
+typedef struct env *env;
 
 // Functions
-__attribute__((noreturn))
-void repl_error(const char *fmt, ...);
+__attribute__((noreturn)) void repl_error(const char *fmt, ...);
+int is_special(const char *sym);
+value eval_special(value head, value args, env e);
+value eval(value v, env e);
 
 /**
  * Alloc tracking
@@ -32,25 +38,27 @@ void **alloc_list = NULL;
 size_t alloc_count = 0;
 
 void *track_malloc(size_t size) {
-    void *ptr = malloc(size);
-    if (ptr) {
-        void **new_list = realloc(alloc_list, (alloc_count + 1) * sizeof(void *));
-        if (!new_list) {
-            free(ptr);
-            return NULL; // Handle out-of-memory
-        }
-        alloc_list = new_list;
-        alloc_list[alloc_count++] = ptr;
-    }
-    return ptr;
+  void *ptr = malloc(size);
+  if (!ptr) {
+    fprintf(stderr, "Out of memory\n");
+    exit(EXIT_FAILURE);
+  }
+
+  alloc_list = realloc(alloc_list, (alloc_count + 1) * sizeof(void *));
+  if (!alloc_list) {
+    fprintf(stderr, "Out of memory\n");
+    exit(EXIT_FAILURE);
+  }
+  alloc_list[alloc_count++] = ptr;
+
+  return ptr;
 }
 
 void free_all_allocs(void) {
-    for (size_t i = 0; i < alloc_count; ++i)
-        free(alloc_list[i]);
-    free(alloc_list);
+  for (size_t i = 0; i < alloc_count; ++i)
+    free(alloc_list[i]);
+  free(alloc_list);
 }
-
 
 /**
  * Minimalist lexer
@@ -81,13 +89,13 @@ void skip_ws(FILE *in) {
     fgetc(in);
 }
 
-//Store for next token
+// Store for next token
 static token tok = {0};
 int token_pushed = 0;
 
 void token_push(token to_push) {
   assert(!token_pushed);
-  
+
   tok = to_push;
   token_pushed = 1;
 }
@@ -95,12 +103,11 @@ void token_push(token to_push) {
 // Simple token reader
 token token_getnext(FILE *in) {
 
-  if(token_pushed) {
+  if (token_pushed) {
     token_pushed = 0;
     return tok;
   }
 
-  
   char buf[1024]; // TODO: Dynamic
   skip_ws(in);
   int c = fgetc(in);
@@ -150,8 +157,6 @@ token token_getnext(FILE *in) {
   repl_error("Unexpected char: '%c'\n", c);
 }
 
-
-
 /**
  * LISP values
  */
@@ -160,14 +165,21 @@ typedef enum {
   TYPE_INT,
   TYPE_SYMBOL,
   TYPE_NIL,
-  TYPE_FUNCTION
+  TYPE_FUNCTION,
+  TYPE_SPECIAL,
+  TYPE_CLOSURE
 } valueType;
 
-//Value types 
-typedef struct value *value;
-typedef value (*function)(value args);
+// Value types
+typedef value (*function)(value args, env e);
 
-//Value Struct
+typedef struct {
+  value params; // list of symbols
+  value body;   // list of expressions
+  env e;    // captured environment
+} closure;
+
+// Value Struct
 struct value {
   valueType type;
   union {
@@ -178,16 +190,32 @@ struct value {
     int i;
     char *sym;
     function fn;
+    closure clo;
   };
 };
 
 value value_alloc(valueType type) {
   value v = track_malloc(sizeof(value));
-  if (!v) {
-    fprintf(stderr, "Momery nada<zip><nothing><dead>\n");
-    exit(EXIT_FAILURE);
-  }
   v->type = type;
+  return v;
+}
+
+value value_new_closure(value params, value body, env e) {
+  value v = value_alloc(TYPE_CLOSURE);
+  v->clo.params = params;
+  v->clo.body = body;
+  v->clo.e = e;
+  return v;
+}
+
+value value_new_symbol(const char *text) {
+  value v = value_alloc(TYPE_SYMBOL);
+
+  if (is_special(text))
+    v->type = TYPE_SPECIAL;
+
+  v->sym = strdup(text);
+
   return v;
 }
 
@@ -204,16 +232,10 @@ value value_new_int(int x) {
   return v;
 }
 
-value value_new_sym(const char *s) {
-  value v = value_alloc(TYPE_SYMBOL);
-  v->sym = strdup(s);
-  return v;
-}
-
 value value_new_function(function f) {
-    value v = value_alloc(TYPE_FUNCTION);
-    v->fn = f;
-    return v;
+  value v = value_alloc(TYPE_FUNCTION);
+  v->fn = f;
+  return v;
 }
 
 value value_new_nil() {
@@ -222,111 +244,126 @@ value value_new_nil() {
 }
 
 void value_print(value v) {
-    switch (v->type) {
-        case TYPE_INT:
-            printf("%d", v->i);
-            break;
-        case TYPE_SYMBOL:
-            printf("%s", v->sym);
-            break;
-        case TYPE_NIL:
-            printf("()");
-            break;
-        case TYPE_CONS:
-            printf("(");
-            while (v->type == TYPE_CONS) {
-                value_print(v->cons.car);
-                v = v->cons.cdr;
-                if (v->type == TYPE_CONS)
-                    printf(" ");
-            }
-            if (v->type != TYPE_NIL) {
-                printf(" . ");
-                value_print(v);
-            }
-            printf(")");
-            break;
-        default:
-            printf("<unknown>");
+  switch (v->type) {
+  case TYPE_INT:
+    printf("%d", v->i);
+    break;
+  case TYPE_SYMBOL:
+    printf("%s", v->sym);
+    break;
+  case TYPE_NIL:
+    printf("()");
+    break;
+  case TYPE_CONS:
+    printf("(");
+    while (v->type == TYPE_CONS) {
+      value_print(v->cons.car);
+      v = v->cons.cdr;
+      if (v->type == TYPE_CONS)
+        printf(" ");
     }
+    if (v->type != TYPE_NIL) {
+      printf(" . ");
+      value_print(v);
+    }
+    printf(")");
+    break;
+  case TYPE_CLOSURE:
+  case TYPE_FUNCTION:
+  case TYPE_SPECIAL:
+    printf("<function>");
+  default:
+    printf("<unknown>");
+  }
 }
 
 /**
  * Environment
+ *
+ * All env modifications are done by prepending, first occurence of symbol in the alist is
+ *  the symbols value in that context
+ *
+ * Todo: Do I need to remove duplicates? (later, later)
  */
-value global_env = NULL;
-value eval(value v);
+struct env {
+    env parent;   // Outer scope environment (NULL for global)
+    value bindings;       // alist of (symbol . value) pairs for this scope
+};
 
-void env_set(value sym, value val) {
-    assert(sym->type == TYPE_SYMBOL);
-
-    if(NULL == global_env) {
-      global_env = value_new_nil();
-    }
-
-    for (value e = global_env; e->type == TYPE_CONS; e = e->cons.cdr) {
-            value pair = e->cons.car;
-            if (strcmp(pair->cons.car->sym, sym->sym) == 0) {
-                pair->cons.cdr = val;
-                return;
-            }
-    }
-
-    // New
-    value pair = value_new_cons(sym, val);
-    global_env = value_new_cons(pair, global_env);
+env env_new(env parent) {
+    env e = track_malloc(sizeof(struct env));
+    e->parent = parent;
+    e->bindings = value_new_nil(); 
+    return e;
 }
 
+void env_set(env e, value sym, value val) {
+  assert(sym->type == TYPE_SYMBOL);
 
-
-value env_lookup(const char *name) {
-    for (value e = global_env; e->type == TYPE_CONS; e = e->cons.cdr) {
-            value pair = e->cons.car;
-            if (strcmp(pair->cons.car->sym, name) == 0)
-                return pair->cons.cdr;
-    }
-    repl_error("Unbound symbol: %s\n", name);
+  // New
+  value pair = value_new_cons(sym, val);
+  e->bindings = value_new_cons(pair, e->bindings);
 }
 
+env env_extend(env parent, value params, value args) {
+  env e = env_new(parent);
+  while (params->type == TYPE_CONS && args->type == TYPE_CONS) {
+    env_set(e, params->cons.car, args->cons.car);
+    params = params->cons.cdr;
+    args = args->cons.cdr;
+  }
+  return e;
+}
+
+value env_lookup(env e, const char *name) {
+  for (; e != NULL; e = e->parent)
+    for (value bind = e->bindings;
+	 bind->type == TYPE_CONS;
+         bind = bind->cons.cdr) {
+      value pair = bind->cons.car;
+
+      if (strcmp(pair->cons.car->sym, name) == 0)
+        return pair->cons.cdr;
+    }
+
+  repl_error("Unbound symbol: %s\n", name);
+}
 
 /**
  *  Builtin functions
  */
 
+value builtin_add(value args, env e) {
+  int sum = 0;
+  while (args->type == TYPE_CONS) {
+    value v = args->cons.car;
+    if (v->type != TYPE_INT)
+      repl_error("Expected int\n");
 
-value builtin_add(value args) {
-    int sum = 0;
-    while (args->type == TYPE_CONS) {
-        value v = args->cons.car;
-        if (v->type != TYPE_INT)
-	  repl_error("Expected int\n");
-
-        sum += v->i;
-        args = args->cons.cdr;
-    }
-    return value_new_int(sum);
+    sum += v->i;
+    args = args->cons.cdr;
+  }
+  return value_new_int(sum);
 }
 
+value builtin_sub(value args, env e) {
+  if (args->type == TYPE_NIL)
+    repl_error("sub: requires at least one argument\n");
 
-value builtin_sub(value args) {
-    if (args->type == TYPE_NIL)
-      repl_error("sub: requires at least one argument\n");
+  value first = args->cons.car;
+  value rest = args->cons.cdr;
 
+  if (rest->type == TYPE_NIL) {
+    return value_new_int(0 - first->i); // unary: negate
+  }
 
-    value first = args->cons.car;
-    value rest  = args->cons.cdr;
+  int result = first->i;
+  for (; rest->type != TYPE_NIL; rest = rest->cons.cdr) {
+    value v = rest->cons.car;
+    result -= v->i;
+  }
 
-    if (rest->type == TYPE_NIL) {
-        return value_new_int(0 - first->i); // unary: negate
-    }
-
-    int result = first->i;
-    for (; rest->type != TYPE_NIL; rest = rest->cons.cdr) {
-        value v = rest->cons.car;
-        result -= v->i;
-    }
-
-    return value_new_int(result);
+  return value_new_int(result);
 }
 
 struct builtin_functions {
@@ -335,88 +372,147 @@ struct builtin_functions {
 };
 
 struct builtin_functions startup[] = {
-  { "add", builtin_add },
-  { "sub", builtin_sub },
-  { NULL, NULL }
-};
+    {"add", builtin_add}, {"sub", builtin_sub}, {NULL, NULL}};
 
-void startup_load_builtins() {
-  for(int i = 0; startup[i].name != NULL; i++) {
+env startup_load_builtins() {
+  env e = env_new(NULL);
+  
+  for (int i = 0; startup[i].name != NULL; i++) {
     value symbol = value_alloc(TYPE_SYMBOL);
     value function = value_alloc(TYPE_FUNCTION);
 
     symbol->sym = startup[i].name;
     function->fn = startup[i].fn;
-    env_set(symbol, function);
-
+    env_set(e, symbol, function);
   }
-  
-}
 
+  return e;
+}
 
 /**
  * Base evalation
  */
 
-value eval_list(value lst) {
+value eval_list(value lst, env e) {
     if (lst->type == TYPE_NIL)
         return lst;
-    
-    return value_new_cons(eval(lst->cons.car), eval_list(lst->cons.cdr));
+
+    value head = eval(lst->cons.car, e);
+    value tail = eval_list(lst->cons.cdr, e);
+    return value_new_cons(head, tail);
 }
 
-
-value eval_define(value args) {
+value eval_define(value args, env e) {
     value sym = args->cons.car;
 
     if (sym->type != TYPE_SYMBOL)
-        repl_error("define: first argument must be a symbol");
+        repl_error("define: first argument must be a symbol (for now)");
 
     value expr = args->cons.cdr->cons.car;
-    value val = eval(expr);
-    env_set(sym, val);
+    value val = eval(expr, e);
+
+    env_set(e, sym, val);
+    
     return sym;
 }
 
-value eval_quote(value args) {
-  return args->cons.car;
+
+value eval_quote(value args, env e) {
+    return args->cons.car;
+}
+
+value eval_lambda(value args, env e){
+        value params = args->cons.car;             // first argument
+        value body = args->cons.cdr;               // rest of list
+
+        return value_new_closure(params, body, e);
+}
+
+value eval_apply_closure(value fn, value arg_exprs, env calling_env) {
+  assert(fn->type == TYPE_CLOSURE);
+  value params = fn->clo.params;
+  value body = fn->clo.body;
+  env closure_env = fn->clo.e;
+
+  value args = eval_list(arg_exprs, calling_env); // eval args in calling env
+
+  // Bind params to args
+  env new_env = env_extend(closure_env, params, args);
+
+  // Evaluate body in new_env
+  value result = value_new_nil();
+  
+  while (body->type == TYPE_CONS) {
+    result = eval(body->cons.car, new_env);
+    body = body->cons.cdr;
+  }
+  
+  return result;
 }
 
 
-value eval(value v) {
-    switch (v->type) {
-    case TYPE_INT:
-    case TYPE_NIL:
-    case TYPE_FUNCTION:
+value eval(value v, env e) {
+        switch (v->type) {
+        case TYPE_INT:
+        case TYPE_NIL:
+        case TYPE_FUNCTION:
         return v;
 
-    case TYPE_SYMBOL:
-        return env_lookup(v->sym);
+        case TYPE_SYMBOL:
+        return env_lookup(e, v->sym);
 
-    case TYPE_CONS: {
+        case TYPE_CONS: {
         value head = v->cons.car;
 
-        if (head->type == TYPE_SYMBOL) {
-            if (strcmp(head->sym, "define") == 0)
-                    return eval_define(v->cons.cdr);
-	    
-            if (strcmp(head->sym, "quote") == 0)
-                    return eval_quote(v->cons.cdr);
-            // more 
+        if (head->type == TYPE_SPECIAL)
+          return eval_special(head, v->cons.cdr, e);
+
+        value fn = eval(head, e);
+        value args = v->cons.cdr;
+
+        if (fn->type == TYPE_CLOSURE)
+          return eval_apply_closure(fn, args, e);
+
+        if (fn->type == TYPE_FUNCTION)
+          return fn->fn(eval_list(args, e), e);
+
+        repl_error("Not a function");
         }
 
-        value fn = eval(head);
-        value args = eval_list(v->cons.cdr);
-        if (fn->type == TYPE_FUNCTION)
-            return fn->fn(args);
-
-        repl_error("Not a function\n");
-    }
-
-    default:
+        default:
         repl_error("Unknown type in eval\n");
         exit(1);
-    }
+        }
+}
+
+/**
+ * Special forms
+ */
+
+value eval_np(value args, env e) {
+  repl_error("Special form not implemented");
+}
+
+static const char *special_forms[] = {"lambda", "define", "quote",
+                                      "if",     "let",    NULL};
+
+static const function special_handlers[] = {eval_lambda, eval_define,
+                                            eval_quote, eval_np, eval_np};
+
+int is_special(const char *sym) {
+  for (int i = 0; special_forms[i] != NULL; i++)
+    if (strcmp(sym, special_forms[i]) == 0)
+      return 1;
+
+  return 0;
+}
+
+value eval_special(value head, value args,env e) {
+  for (int i = 0; special_forms[i] != NULL; i++)
+    if (strcmp(head->sym, special_forms[i]) == 0)
+      return special_handlers[i](args,e);
+
+  repl_error("Unknown special form: %s", head->sym);
 }
 
 /**
@@ -426,18 +522,17 @@ value parse_expression(FILE *in);
 
 value parse_list(FILE *in) {
   token t = token_getnext(in);
-  
+
   if (t.type == TOK_RPAREN)
     return value_new_nil();
 
   token_push(t);
-  
+
   value car_val = parse_expression(in);
   value cdr_val = parse_list(in);
-  
+
   return value_new_cons(car_val, cdr_val);
 }
-
 
 value parse_expression(FILE *in) {
   token t = token_getnext(in);
@@ -446,78 +541,76 @@ value parse_expression(FILE *in) {
     return parse_list(in);
 
   case TOK_QUOTE:
-    return value_new_cons(value_new_sym("quote"),
-                          value_new_cons(parse_expression(in), value_new_nil()));
+    return value_new_cons(
+        value_new_symbol("quote"),
+        value_new_cons(parse_expression(in), value_new_nil()));
 
   case TOK_INT:
     return value_new_int(atoi(t.text));
 
   case TOK_SYMBOL:
-    return value_new_sym(t.text);
+    return value_new_symbol(t.text);
 
   case TOK_RPAREN:
-    repl_error("Unexpected ')' outside list\n");
+    repl_error("Unexpected ')' outside list");
 
   case TOK_EOF:
-    repl_error("Unexpected EOF\n");
-  
+    repl_error("Unexpected EOF");
+
   default:
-    repl_error("Unknown token type\n");
+    repl_error("Unknown token type");
   }
 }
-
-
 
 jmp_buf repl_env;
 
 void repl_error(const char *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
+  va_list ap;
+  va_start(ap, fmt);
 
-    fprintf(stderr, "Error: ");
-    vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
+  fprintf(stderr, "Error: ");
+  vfprintf(stderr, fmt, ap);
+  fprintf(stderr, "\n");
 
-    va_end(ap);
-    longjmp(repl_env, 1);
+  va_end(ap);
+  longjmp(repl_env, 1);
 }
 
+void repl(env e) {
+  char line[1024];
 
-void repl() {
-    char line[1024];
-
-    for(;;) {
-        if (setjmp(repl_env) != 0) {
-            // After an error
-            printf("Error recovered.\n");
-        }
-
-        printf("lispy> ");
-        if (!fgets(line, sizeof(line), stdin)) break;
-
-        FILE *input = fmemopen(line, strlen(line), "r");
-        value expr = parse_expression(input);
-        fclose(input);
-
-        value result = eval(expr);
-        value_print(result);
-        printf("\n");
+  for (;;) {
+    if (setjmp(repl_env) != 0) {
+      // After an error
+      printf("Error recovered.\n");
     }
 
-    printf("bye.\n");
+    printf("lisp> ");
+    if (!fgets(line, sizeof(line), stdin))
+      break;
+
+    FILE *input = fmemopen(line, strlen(line), "r");
+    value expr = parse_expression(input);
+    fclose(input);
+
+    value result = eval(expr, e);
+    value_print(result);
+    printf("\n");
+  }
+
+  printf("bye.\n");
 }
 
-
-
 int main() {
-  //Setup free on exit
+  // Setup free on exit
   atexit(free_all_allocs);
 
-  //Load builtins
-  startup_load_builtins();
+  // Load builtins
+  env global_env;
+  global_env = startup_load_builtins();
 
-  //Go for it
-  repl();
-  
+  // Go for it
+  repl(global_env);
+
   return EXIT_SUCCESS;
 }
