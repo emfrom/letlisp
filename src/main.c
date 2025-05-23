@@ -195,7 +195,7 @@ struct value {
 };
 
 value value_alloc(valueType type) {
-  value v = track_malloc(sizeof(value));
+  value v = track_malloc(sizeof(struct value));
   v->type = type;
   return v;
 }
@@ -272,6 +272,8 @@ void value_print(value v) {
   case TYPE_FUNCTION:
   case TYPE_SPECIAL:
     printf("<function>");
+        break;
+
   default:
     printf("<unknown>");
   }
