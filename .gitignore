@@ -1,0 +1,17 @@
+# Ignore all autotools-generated files and build artefacts
+autom4te.cache/
+config.log
+config.status
+configure
+Makefile
+Makefile.in
+*.o
+*.lo
+*.la
+*.so
+*.a
+*.dll
+*.exe
+*.pyc
+*~ 
+tags
