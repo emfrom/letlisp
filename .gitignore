@@ -19,3 +19,4 @@ tags
 /src/.deps/
 /src/.dirstamp
 /.gdbinit
+/minilisp_history

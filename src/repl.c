@@ -20,8 +20,6 @@ jmp_buf repl_env;
 
 #define HISTORY_FILE "minilisp_history"
 
-
-
 void repl_error(const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
@@ -52,7 +50,7 @@ void repl(env e) {
     input_string = readline("minilisp> ");
     
     if(!input_string) //EOF
-      return;
+      break;
 
     if (*input_string) 
       add_history(input_string);      
