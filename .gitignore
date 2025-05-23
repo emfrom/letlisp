@@ -18,3 +18,4 @@ tags
 /minilisp
 /src/.deps/
 /src/.dirstamp
+/.gdbinit
