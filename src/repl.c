@@ -55,11 +55,9 @@ void repl(env e) {
 
   //Loop 
   for (;;) {
-    if (setjmp(repl_env) != 0) {
-
-      // After an error
+    if (setjmp(repl_env) != 0)
       printf("Error recovered.\n");
-    }
+
 
     //Read 
     char *input_string;
