@@ -58,10 +58,23 @@ value value_new_string(char *str) {
   return v;
 }
 
+
+// Trying to be idiomatic
+const struct value_s bool_true_obj = {
+  .type = TYPE_BOOL,
+  .boolean = 1
+};
+
+const struct value_s bool_false_obj = {
+    .type = TYPE_BOOL,
+    .boolean = 0
+};
+
 value value_new_bool(int b) {
-  value v = value_alloc(TYPE_BOOL);
-  v->boolean = b;
-  return v;
+  value bool_true = (value)&bool_true_obj;
+  value bool_false = (value)&bool_false_obj;
+
+  return b ? bool_true : bool_false;
 }
 
 value value_new_closure(value params, value body, env e) {
