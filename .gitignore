@@ -20,3 +20,5 @@ tags
 /src/.dirstamp
 /.gdbinit
 /minilisp_history
+/*.lsp
+
