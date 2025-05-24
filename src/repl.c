@@ -33,7 +33,7 @@ void repl_error(const char *fmt, ...) {
   longjmp(repl_env, 1);
 }
 
-void repl_eval_print(FILE *in, env e) {
+value repl_eval(FILE *in, env e) {
   value result;
 
   for (;;) {
@@ -45,8 +45,7 @@ void repl_eval_print(FILE *in, env e) {
     result = eval(expr, e);
   }
 
-  //Print
-  value_print(result);
+  return result;
 }
 
 void repl(env e) {
@@ -76,7 +75,7 @@ void repl(env e) {
     input = fmemopen(input_string, strlen(input_string), "r");
 
     //Eval and Print 
-    repl_eval_print(input, e);
+    value_print(repl_eval(input, e));
 
     fclose(input);
     free(input_string);
