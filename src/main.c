@@ -24,6 +24,8 @@
 
 // TODO: Parse with regex
 // TODO: Continuations (for io as well?)
+// TODO: (define (func a b c) ( .. )) form
+
 
 // Stuff
 #include "env.h"
