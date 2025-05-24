@@ -284,7 +284,7 @@ value eval_if(value args, env env) {
     value then_branch = args->cons.cdr->cons.car;
 
     // Extract else branch (optional)
-    value else_branch = value_new_nil();
+    value else_branch;
     if (args->cons.cdr->cons.cdr->type == TYPE_CONS)
         else_branch = args->cons.cdr->cons.cdr->cons.car;
 
