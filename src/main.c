@@ -25,6 +25,10 @@
 // TODO: Parse with regex
 // TODO: Continuations (for io as well?)
 // TODO: (define (func a b c) ( .. )) form
+// TODO: Multiline input to readline
+// TODO: Finish refactor into small files
+// TOTO: Auto-load of an lisp-file on startup
+
 
 
 // Stuff
