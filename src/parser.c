@@ -165,6 +165,9 @@ token token_getnext(FILE *in) {
 value parse_list(FILE *in) {
   token t = token_getnext(in);
 
+  if(t.type == TOK_EOF)
+    repl_error("Unbalanced parenthesis");
+  
   if (t.type == TOK_RPAREN)
     return value_new_nil();
 
