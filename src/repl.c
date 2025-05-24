@@ -13,6 +13,7 @@
 #include "value.h"
 #include "parser.h"
 #include "eval.h"
+#include "builtin.h"
 
 //Error jmp point 
 jmp_buf repl_env;
@@ -30,6 +31,22 @@ void repl_error(const char *fmt, ...) {
 
   va_end(ap);
   longjmp(repl_env, 1);
+}
+
+void repl_eval_print(FILE *in, env e) {
+  value result;
+
+  for (;;) {
+    value expr = parse_expression(in);
+    if (bool_isnil(expr, e))
+      break;
+
+    // Eval
+    result = eval(expr, e);
+  }
+
+  //Print
+  value_print(result);
 }
 
 void repl(env e) {
@@ -55,20 +72,15 @@ void repl(env e) {
     if (*input_string) 
       add_history(input_string);      
 
-    //    printf("%s\n", input_string);
-
     FILE *input;
     input = fmemopen(input_string, strlen(input_string), "r");
-    
-    value expr = parse_expression(input);
+
+    //Eval and Print 
+    repl_eval_print(input, e);
+
     fclose(input);
     free(input_string);
-    
-    //Eval 
-    value result = eval(expr, e);
 
-    //Print 
-    value_print(result);
     printf("\n");
   }
 

@@ -65,8 +65,11 @@ token token_getnext(FILE *in) {
 
   //TODO: More robust
   tok.text = buf;
-  
+
+  //Skip all whitespace
   skip_ws(in);
+
+  
   int c = fgetc(in);
 
   if (c == EOF) {
@@ -175,6 +178,11 @@ value parse_list(FILE *in) {
 
 value parse_expression(FILE *in) {
   token t = token_getnext(in);
+
+  if(t.type == TOK_EOF) {
+    return value_new_nil();
+  }
+  
   switch (t.type) {
   case TOK_LPAREN:
     return parse_list(in);

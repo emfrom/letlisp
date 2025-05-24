@@ -26,11 +26,11 @@
 // TODO: Continuations (for io as well?)
 
 // Stuff
-#include "repl.h"
 #include "env.h"
 #include "value.h"
 #include "parser.h"
 #include "eval.h"
+#include "repl.h"
 
 // Functions
 int is_special(const char *sym);
@@ -293,6 +293,16 @@ value builtin_mult(value args, env e) {
   return value_new_int(product);
 }
 
+int bool_isnil(value args, env e) {
+  if(args->type == TYPE_NIL)
+    return 1;
+
+  return 0;
+}
+
+value builtin_isnil(value args, env e) {
+  return value_new_bool(bool_isnil(args, e)); 
+}
 
 int bool_istrue(value args, env e) {
     if (args->type == TYPE_BOOL)
@@ -349,6 +359,13 @@ value builtin_lequ(value args, env e) {
     return value_new_bool(1);
 }
 
+value builtin_load(value args, env e) {
+  if(args->type != TYPE_STRING) 
+    repl_error("load takes one string argument");  
+  
+  return value_new_bool(1);
+}
+
 struct builtin_functions {
   char *name;
   function fn;
@@ -359,7 +376,9 @@ struct builtin_functions startup[] = {
     {"-", builtin_sub},
     {"*", builtin_mult},
     {"true?", builtin_istrue},
-    {"<=", builtin_lequ}, 
+    {"<=", builtin_lequ},
+    {"nil?", builtin_isnil},
+    {"load", builtin_load},
     {NULL, NULL}};
 
 env startup_load_builtins() {
