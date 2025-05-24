@@ -8,7 +8,8 @@ bin_PROGRAMS = minilisp
 minilisp_SOURCES = \
 	src/main.c \
 	src/repl.c \
-	src/parser.c
+	src/parser.c \
+	src/builtin.c
 
 
 minilisp_LDADD = \

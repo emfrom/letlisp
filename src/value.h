@@ -1,13 +1,53 @@
 #ifndef VALUE_H
 #define VALUE_H
 
-#include "env.h"
+#include <stdint.h>
+
+#ifndef ENV_H
+typedef struct env_s *env;
+#endif 
 
 // Value types
 typedef struct value_s *value;
 typedef value (*function)(value args, env e);
 
-//Value functions 
+typedef enum {
+  TYPE_CONS,
+  TYPE_INT,
+  TYPE_SYMBOL,
+  TYPE_NIL,
+  TYPE_FUNCTION,
+  TYPE_SPECIAL,
+  TYPE_CLOSURE,
+  TYPE_BOOL,
+  TYPE_STRING
+} valueType;
+
+typedef struct {
+  value params; // list of symbols
+  value body;   // list of expressions
+  env e;    // captured environment
+} closure;
+
+// Value Struct
+struct value_s {
+  valueType type;
+  union {
+    struct {
+      value car;
+      value cdr;
+    } cons;
+    int64_t i;
+    char *sym;
+    char *string;
+    function fn;
+    closure clo;
+    int boolean;
+  };
+};
+
+// Value functions
+value value_alloc(valueType type);
 value value_new_string(char *str);
 value value_new_bool(int b);
 value value_new_closure(value params, value body, env e);
