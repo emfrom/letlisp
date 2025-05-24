@@ -37,131 +37,6 @@ int is_special(const char *sym);
 
 
 /**
- * Minimalist lexer
- */
-typedef enum {
-  TOK_EOF,
-  TOK_LPAREN,
-  TOK_RPAREN,
-  TOK_QUOTE,
-  TOK_SYMBOL,
-  TOK_INT,
-  TOK_BOOL,
-  TOK_STRING
-} tokenType;
-
-typedef struct {
-  tokenType type;
-  char *text;
-} token;
-
-int peek(FILE *in) {
-  int c = fgetc(in);
-  if (c != EOF)
-    ungetc(c, in);
-  return c;
-}
-
-void skip_ws(FILE *in) {
-  while (isspace(peek(in)))
-    fgetc(in);
-}
-
-// Store for next token
-static token tok = {0};
-int token_pushed = 0;
-
-void token_push(token to_push) {
-  assert(!token_pushed);
-
-  tok = to_push;
-  token_pushed = 1;
-}
-
-// Simple token reader
-token token_getnext(FILE *in) {
-
-  if (token_pushed) {
-    token_pushed = 0;
-    return tok;
-  }
-
-  char buf[1024];
-  tok.text = buf;
-  skip_ws(in);
-  int c = fgetc(in);
-
-  if (c == EOF) {
-    tok.type = TOK_EOF;
-    return tok;
-  }
-
-  if (c == '(') {
-    tok.type = TOK_LPAREN;
-    return tok;
-  }
-
-  if (c == ')') {
-    tok.type = TOK_RPAREN;
-    return tok;
-  }
-
-  if (c == '\'') {
-    tok.type = TOK_QUOTE;
-    return tok;
-  }
-
-  if (c == '#') {
-    tok.type = TOK_BOOL;
-    buf[0] = '#';
-    buf[1] = fgetc(in);
-    buf[2] = '\0';
-
-    if(!strchr("tf",buf[1])) 
-      repl_error("Malformated input: %s\n", buf);
-
-    //tok.text = strdup(buf);
-
-    return tok;
-  }
-  
-  if (isdigit(c) || (c == '-' && isdigit(peek(in)))) {
-    int i = 0;
-    buf[i++] = c;
-    while (isdigit(peek(in)))
-      buf[i++] = fgetc(in);
-    buf[i] = '\0';
-    tok.type = TOK_INT;
-
-    //tok.text = strdup(buf);
-
-    return tok;
-  }
-
-  if (isalpha(c) || strchr("+-*/<=>!?_\"", c)) {
-    int i = 0;
-    buf[i++] = c;
-    while (isalnum(peek(in)) || strchr(":+-*/<=>!?_", peek(in)))
-      buf[i++] = fgetc(in);
-    buf[i] = '\0';
-
-    tok.type = TOK_SYMBOL;
-    if (buf[0] == '\"' && buf[i - 1] == '\"') {
-      tok.type = TOK_STRING;
-      tok.text = GC_MALLOC(i);
-      buf[i - 1] = '\0';
-      strcpy(tok.text, buf + 1);
-    }
-
-    if (!strchr(tok.text, '\"'))
-      return tok;
-    repl_error("Stray \" in input");
-  }
-
-  repl_error("Unexpected char: '%c'\n", c);
-}
-
-/**
  * LISP values
  */
 typedef enum {
@@ -176,8 +51,7 @@ typedef enum {
   TYPE_STRING
 } valueType;
 
-// Value types
-typedef value (*function)(value args, env e);
+
 
 typedef struct {
   value params; // list of symbols
@@ -210,7 +84,7 @@ value value_alloc(valueType type) {
 
 value value_new_string(char *str) {
   value v = value_alloc(TYPE_STRING);
-  v->string = str;
+  v->string = strdup(str);
   return v;
 }
 
@@ -598,6 +472,7 @@ value eval(value v, env e) {
         case TYPE_NIL:
         case TYPE_FUNCTION:
 	case TYPE_BOOL:
+	case TYPE_STRING:
         return v;
 
         case TYPE_SYMBOL:
@@ -655,58 +530,6 @@ value eval_special(value head, value args,env e) {
       return special_handlers[i](args,e);
 
   repl_error("Unknown special form: %s", head->sym);
-}
-
-/**
- * Simple parser
- */
-
-value parse_list(FILE *in) {
-  token t = token_getnext(in);
-
-  if (t.type == TOK_RPAREN)
-    return value_new_nil();
-
-  token_push(t);
-
-  value car_val = parse_expression(in);
-  value cdr_val = parse_list(in);
-
-  return value_new_cons(car_val, cdr_val);
-}
-
-value parse_expression(FILE *in) {
-  token t = token_getnext(in);
-  switch (t.type) {
-  case TOK_LPAREN:
-    return parse_list(in);
-
-  case TOK_QUOTE:
-    return value_new_cons(
-        value_new_symbol("quote"),
-        value_new_cons(parse_expression(in), value_new_nil()));
-
-  case TOK_BOOL:
-    return value_new_bool(t.text[1] == 't');
-    
-  case TOK_INT:
-    return value_new_int(atoi(t.text));
-
-  case TOK_SYMBOL:
-    return value_new_symbol(t.text);
-
-  case TOK_STRING:
-    return value_new_string(t.text);
-
-  case TOK_RPAREN:
-    repl_error("Unexpected ')' outside list");
-
-  case TOK_EOF:
-    repl_error("Unexpected EOF");
-
-  default:
-    repl_error("Unknown token type");
-  }
 }
 
 

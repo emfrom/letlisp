@@ -55,7 +55,7 @@ void repl(env e) {
     if (*input_string) 
       add_history(input_string);      
 
-
+    //    printf("%s\n", input_string);
 
     FILE *input;
     input = fmemopen(input_string, strlen(input_string), "r");
@@ -66,7 +66,7 @@ void repl(env e) {
     
     //Eval 
     value result = eval(expr, e);
-    
+
     //Print 
     value_print(result);
     printf("\n");

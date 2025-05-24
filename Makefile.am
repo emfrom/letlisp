@@ -7,7 +7,8 @@ AM_CPPFLAGS = -I$(srcdir)/src -Isrc \
 bin_PROGRAMS = minilisp
 minilisp_SOURCES = \
 	src/main.c \
-	src/repl.c
+	src/repl.c \
+	src/parser.c
 
 
 minilisp_LDADD = \
