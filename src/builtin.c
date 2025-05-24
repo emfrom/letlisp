@@ -187,6 +187,30 @@ value builtin_list(value args, env e) {
   return args;
 }
 
+value builtin_display(value args, env e) {
+    if (args->type != TYPE_CONS)
+        repl_error("display need at least one argument");
+
+    do {
+        value text = args->cons.car;
+        if (text->type != TYPE_STRING)
+            repl_error("display takes strings as arguments");
+
+        printf("%s", text->string);
+
+        args = args->cons.cdr;
+    } while (args->type == TYPE_CONS);
+
+    return value_new_bool(1);
+}
+
+value builtin_newline(value args, env e) {
+  printf("\n");
+
+  return value_new_bool(1);
+}
+
+
 struct builtin_functions {
   char *name;
   function fn;
@@ -204,6 +228,8 @@ struct builtin_functions startup[] = {
     {"car", builtin_car},
     {"cdr", builtin_cdr},
     {"list", builtin_list},
+    {"display", builtin_display},
+    {"newline", builtin_newline},
     {NULL, NULL}};
 
 env startup_load_builtins() {

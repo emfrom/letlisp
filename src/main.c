@@ -40,9 +40,6 @@ int is_special(const char *sym);
 /**
  * LISP values
  */
-
-
-
 value value_alloc(valueType type) {
   value v = GC_MALLOC(sizeof(struct value_s));
   v->type = type;
@@ -340,10 +337,10 @@ value eval_np(value args, env e) {
 }
 
 static const char *special_forms[] = {"lambda", "define", "quote",
-                                      "if",     "let",    NULL};
+                                      "if",  NULL};
 
 static const function special_handlers[] = {eval_lambda, eval_define,
-                                            eval_quote, eval_if, eval_np};
+                                            eval_quote, eval_if };
 
 int is_special(const char *sym) {
   for (int i = 0; special_forms[i] != NULL; i++)
