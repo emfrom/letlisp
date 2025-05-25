@@ -72,13 +72,13 @@ void repl(env e) {
     FILE *input;
     input = fmemopen(input_string, strlen(input_string), "r");
 
-    //Eval and Print 
+    //Eval and Print
     value_print(repl_eval(input, e));
+    printf("\n");
 
     fclose(input);
     free(input_string);
 
-    printf("\n");
   }
 
   //Write history
