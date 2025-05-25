@@ -238,6 +238,15 @@ value builtin_eq_pred(value args, env e) {
   return car(args) == cadr(args) ? value_new_bool(1) : value_new_bool(0);
 }
 
+value builtin_pair_pred(value args, env e) {
+  if(args->type != TYPE_CONS ||
+     cdr(args)->type != TYPE_NIL)
+    repl_error("pair? takes exactly one argument");
+
+  return car(args)->type == TYPE_CONS ? value_new_bool(1) : value_new_bool(0);
+}
+
+
 struct builtin_functions {
   char *name;
   function fn;
@@ -247,8 +256,9 @@ struct builtin_functions startup[] = {
     {"+", builtin_add},
     {"-", builtin_sub},
     {"*", builtin_mult},
-    {"true?", builtin_istrue},
-    {"null?", builtin_isnull},
+    {"true?", builtin_true_pred},
+    {"null?", builtin_null_pred},
+    {"pair?", builtin_pair_pred},
     {"eq?", builtin_eq_pred},
     {"<=", builtin_lequ},
     {"load", builtin_load},
