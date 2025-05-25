@@ -285,17 +285,37 @@ value eval_list(value lst, env e) {
 }
 
 value eval_define(value args, env e) {
-  value sym = car(args);
+    value sym = car(args);
 
-    if (sym->type != TYPE_SYMBOL)
-        repl_error("define: first argument must be a symbol (for now)");
+    // (define symbol expr)
+    if (sym->type == TYPE_SYMBOL) {
+        value expr = car(cdr(args));
+        value val = eval(expr, e);
+        env_set(e, sym, val);
+        return sym;
+    }
 
-    value expr = args->cons.cdr->cons.car;
-    value val = eval(expr, e);
+    // define function
+    else if (sym->type == TYPE_CONS) {
+        value func_name = car(sym);
 
-    env_set(e, sym, val);
-    
-    return sym;
+        //TODO: This breaks renaming special forms (dont really care f.n.)
+        if (func_name->type != TYPE_SYMBOL)
+	  repl_error("define: function name must be a symbol"); 
+
+        value params = cdr(sym);        
+        value body = cdr(args);         
+
+        value lambda_sym = value_new_symbol("lambda",e);
+        value lambda_expr = value_new_cons(lambda_sym,
+					   value_new_cons(params, body));
+	
+        value val = eval(lambda_expr, e);
+        env_set(e, func_name, val);
+        return func_name;
+    }
+
+    repl_error("define: invalid syntax");
 }
 
 
