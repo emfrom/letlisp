@@ -61,23 +61,29 @@ value builtin_mult(value args, env e) {
 }
 
 int bool_isnil(value args, env e) {
-  if(args->type == TYPE_NIL)
+  //Needed since empty list is sometimes evaled to nil
+  if(args->type == TYPE_NIL) 
     return 1;
 
+  if(args->type == TYPE_CONS &&
+     args->cons.car->type == TYPE_NIL)
+     return 1;
+  
   return 0;
 }
 
-value builtin_isnil(value args, env e) {
+value builtin_isnull(value args, env e) {
   return value_new_bool(bool_isnil(args, e)); 
 }
 
 int bool_istrue(value args, env e) {
-    if (args->type == TYPE_BOOL)
-        return args->boolean;
-    if (args->type == TYPE_NIL)
-        return 0;
-    
-    return 1; // everything else true
+  if (args->type != TYPE_CONS)
+    repl_error("true? needs one argument");
+
+  if (args->cons.car->type == TYPE_BOOL)
+    return args->cons.car->boolean;
+
+  return 1; // everything else true
 }
 
 value builtin_istrue(value args, env e) {
@@ -222,7 +228,7 @@ struct builtin_functions startup[] = {
     {"*", builtin_mult},
     {"true?", builtin_istrue},
     {"<=", builtin_lequ},
-    {"nil?", builtin_isnil},
+    {"null?", builtin_isnull},
     {"load", builtin_load},
     {"cons", builtin_cons},
     {"car", builtin_car},
