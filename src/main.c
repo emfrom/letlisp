@@ -398,15 +398,49 @@ value eval(value v, env e) {
  * Special forms
  */
 
+value eval_or(value args, env e) {
+
+  while (args->type == TYPE_CONS) {
+    value current = car(args);
+    value result = eval(current, e);
+
+    // Short 
+    if (result->type != TYPE_BOOL || result->boolean) 
+      return result;
+    
+
+    args = cdr(args);
+  }
+
+  return value_new_bool(0);
+}
+
+value eval_and(value args, env e) {
+  while (args->type == TYPE_CONS) {
+    value current = car(args);
+    value result = eval(current, e);
+
+    //short
+    if (result->type == TYPE_BOOL && !result->boolean)
+      return result;
+
+    args = cdr(args);
+  }
+
+  return value_new_bool(1);
+}
+
+
 value eval_np(value args, env e) {
   repl_error("Special form not implemented");
 }
 
-static const char *special_forms[] = {"lambda", "define", "quote",
-                                      "if",  NULL};
+static const char *special_forms[] = {
+  "lambda", "define", "quote",
+  "if", "or", "and", NULL};
 
 static const function special_handlers[] = {eval_lambda, eval_define,
-                                            eval_quote, eval_if };
+                                            eval_quote, eval_if, eval_or, eval_and};
 
 int is_special(const char *sym) {
   for (int i = 0; special_forms[i] != NULL; i++)
