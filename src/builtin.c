@@ -77,17 +77,18 @@ value builtin_null_pred(value args, env e) {
 }
 
 int bool_istrue(value args, env e) {
-  if (args->type != TYPE_CONS)
-    repl_error("true? needs one argument");
-
-  if (args->cons.car->type == TYPE_BOOL)
-    return args->cons.car->boolean;
-
+  if (args->type == TYPE_BOOL)
+    return args->boolean;
+  
   return 1; // everything else true
 }
 
 value builtin_true_pred(value args, env e) {
-  return value_new_bool(bool_istrue(args,e));
+  if (args->type != TYPE_CONS ||
+      cdr(args)->boolean != TYPE_NIL)
+    repl_error("true? needs one argument");
+
+  return value_new_bool(bool_istrue(car(args),e));
 }
 
 int bool_isnumber(value args, env e) {
