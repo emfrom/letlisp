@@ -26,7 +26,7 @@
              (list? (cdr x))))))
 
 ;; Strict combinator
-;; eta expanded Y-comb 
+;; (eta expanded Y-comb)
 (define Z-combinator
   (lambda (f)
     ((lambda (x) (f (lambda (v) ((x x) v))))

@@ -169,9 +169,9 @@ void value_print(value v) {
   switch (v->type) {
   case TYPE_NUM_EXACT:
     if (mpz_cmp_ui(mpq_denref(v->num_exact), 1) == 0) {
-        gmp_printf("%Zd\n", mpq_numref(v->num_exact));
+        gmp_printf("%Zd", mpq_numref(v->num_exact));
     } else {
-        gmp_printf("%Qd\n", v->num_exact);
+        gmp_printf("%Qd", v->num_exact);
     }
     break;
     

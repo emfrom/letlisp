@@ -9,6 +9,7 @@
 #include "value.h"
 #include "repl.h"
 #include "parser.h"
+#include "numbers.h"
 
 /**
  * Minimalist lexer
@@ -213,8 +214,7 @@ value parse_expression(FILE *in, env e) {
     return value_new_bool(t.text[1] == 't');
 
   case TOK_NUMBER: {
-    mpq_t exact;
-    mpq_init(exact);
+    mpq_ptr exact = num_exact_new();
 
     if (!strchr(t.text, '/'))
       strcat(t.text, "/1");

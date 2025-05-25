@@ -8,14 +8,14 @@
 #include "value.h"
 #include "env.h"
 #include "repl.h"
+#include "numbers.h"
 
 /**
  *  Builtin functions
  */
 
 value builtin_add(value args, env e) {
-  mpq_t sum;
-  mpq_init(sum);
+  mpq_ptr sum = num_exact_new();
 
   //Additive identity
   mpq_set_ui(sum, 0, 1);
@@ -37,8 +37,7 @@ value builtin_sub(value args, env e) {
   value first = car(args);
   value rest = cdr(args);
 
-  mpq_t result;
-  mpq_init(result);
+  mpq_ptr result = num_exact_new();
 
   if(first->type != TYPE_NUM_EXACT)
     repl_error("sub: expects number");
@@ -63,8 +62,7 @@ value builtin_sub(value args, env e) {
 }
 
 value builtin_mult(value args, env e) {
-  mpq_t product;
-  mpq_init(product);
+  mpq_ptr product = num_exact_new();
 
   //Multiplicative identity
   mpq_set_ui(product, 1, 1);
@@ -87,10 +85,9 @@ value builtin_div(value args, env e) {
   value first = car(args);
   value rest = cdr(args);
 
-  mpq_t result;
-  mpq_init(result);
+  mpq_ptr result = num_exact_new();
 
-   if(first->type != TYPE_NUM_EXACT)
+  if(first->type != TYPE_NUM_EXACT)
     repl_error("div: expects number");
 
   // unary: negate
@@ -197,7 +194,7 @@ value builtin_lequ(value args, env e) {
         return value_new_bool(1);
     }
 
-    value prev = args->cons.car;
+    value prev = car(args);
     if (!bool_isnumber(prev, e)) {
         repl_error("<=: arguments must be numbers");
     }
@@ -345,6 +342,7 @@ struct builtin_functions startup[] = {
     {"+", builtin_add},
     {"-", builtin_sub},
     {"*", builtin_mult},
+    {"/", builtin_div},
     {"true?", builtin_true_pred},
     {"null?", builtin_null_pred},
     {"pair?", builtin_pair_pred},
