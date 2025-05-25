@@ -15,12 +15,15 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <setjmp.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <gc/gc.h>
+
+// TODO: segv in the repl
 
 // TODO: Parse with regex
 // TODO: Continuations (for io as well?)
@@ -499,7 +502,10 @@ int main() {
   global_env = special_startup(global_env);
 
   // Load lisp startup
-  repl_eval_file("minilisp.lsp", global_env);
+  if(setjmp(repl_env) == 0)
+    repl_eval_file("minilisp.lsp", global_env);
+  else
+    fprintf(stderr,"Error in startup file\n");
   
   // Go for it
   repl(global_env);

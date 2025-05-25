@@ -41,6 +41,23 @@ void skip_ws(FILE *in) {
     fgetc(in);
 }
 
+void skip_noncode(FILE *in) {
+  skip_ws(in);
+
+  //Skip comments 
+  while(';' == peek(in)) {
+    int c;
+    do {
+      c = fgetc(in);
+
+      if(c == EOF)
+	return;
+      
+    } while(c != '\n');
+    skip_ws(in);
+  }
+}
+
 // Store for next token
 static token tok = {0};
 int token_pushed = 0;
@@ -66,9 +83,7 @@ token token_getnext(FILE *in) {
   //TODO: More robust
   tok.text = buf;
 
-  //Skip all whitespace
-  skip_ws(in);
-
+  skip_noncode(in);
   
   int c = fgetc(in);
 

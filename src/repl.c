@@ -33,7 +33,6 @@ void repl_error(const char *fmt, ...) {
   longjmp(repl_env, 1);
 }
 
-
 value repl_eval(FILE *in, env e) {
   value result;
 

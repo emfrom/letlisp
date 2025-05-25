@@ -2,9 +2,12 @@
 #define REPL_H
 
 #include <stdio.h>
+#include <setjmp.h>
 
 #include "env.h"
 #include "value.h"
+
+extern jmp_buf repl_env;
 
 // Return to repl prompt on error
 __attribute__((noreturn)) void repl_error(const char *fmt, ...);
