@@ -216,6 +216,17 @@ value builtin_newline(value args, env e) {
   return value_new_bool(1);
 }
 
+value builtin_debug(value args, env e) {
+  printf("\n0x%p\n", args);
+
+  if(args->type == TYPE_CONS)
+    printf("0x%p\n", args->cons.car);
+  
+  value_print(args);
+  printf("\n\n");
+  
+  return value_new_bool(1);
+}
 
 struct builtin_functions {
   char *name;
@@ -236,6 +247,7 @@ struct builtin_functions startup[] = {
     {"list", builtin_list},
     {"display", builtin_display},
     {"newline", builtin_newline},
+    {"debug", builtin_debug},
     {NULL, NULL}};
 
 env startup_load_builtins() {
