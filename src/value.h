@@ -2,6 +2,8 @@
 #define VALUE_H
 
 #include <stdint.h>
+#include <stdio.h>
+#include <gmp.h>
 
 #ifndef ENV_H
 typedef struct env_s *env;
@@ -13,7 +15,8 @@ typedef value (*function)(value args, env e);
 
 typedef enum {
   TYPE_CONS,
-  TYPE_INT,
+  TYPE_NUM_EXACT,
+  TYPE_NUM_INEXACT,
   TYPE_SYMBOL,
   TYPE_NIL,
   TYPE_FUNCTION,
@@ -38,7 +41,8 @@ struct value_s {
       value car;
       value cdr;
     } cons;
-    int64_t i;
+    mpq_ptr num_inexact;
+    mpq_ptr num_exact;
     char *sym;
     char *string;
     function fn;
@@ -64,7 +68,7 @@ value value_new_closure(value params, value body, env e);
 value value_new_symbol(const char *text, env e);
 value value_new_special(const char *text);
 value value_new_cons(value car, value cdr);
-value value_new_int(int x);
+value value_new_exact(mpq_ptr exact);
 value value_new_function(function f);
 value value_new_nil();
 

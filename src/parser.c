@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <assert.h>
 #include <string.h>
-#include <gc/gc.h>
+#include <gmp.h>
 
 
 #include "value.h"
@@ -19,7 +19,7 @@ typedef enum {
   TOK_RPAREN,
   TOK_QUOTE,
   TOK_SYMBOL,
-  TOK_INT,
+  TOK_NUMBER,
   TOK_BOOL,
   TOK_STRING
 } tokenType;
@@ -125,11 +125,11 @@ token token_getnext(FILE *in) {
   if (isdigit(c) || (c == '-' && isdigit(peek(in)))) {
     int i = 0;
     buf[i++] = c;
-    while (isdigit(peek(in)))
+    while (isdigit(peek(in)) || strchr("./", peek(in)))
       buf[i++] = fgetc(in);
     buf[i] = '\0';
 
-    tok.type = TOK_INT;
+    tok.type = TOK_NUMBER;
     return tok;
   }
 
@@ -211,10 +211,22 @@ value parse_expression(FILE *in, env e) {
 
   case TOK_BOOL:
     return value_new_bool(t.text[1] == 't');
-    
-  case TOK_INT:
-    return value_new_int(atoi(t.text));
 
+  case TOK_NUMBER: {
+    mpq_t exact;
+    mpq_init(exact);
+
+    if (!strchr(t.text, '/'))
+      strcat(t.text, "/1");
+
+    if (0 != mpq_set_str(exact, t.text, 10))
+      repl_error("Invalid number string: %s", t.text);
+
+    mpq_canonicalize(exact);
+
+    return value_new_exact(exact);
+  }
+    
   case TOK_SYMBOL:
     return value_new_symbol(t.text, e);
 

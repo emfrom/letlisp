@@ -1,3 +1,5 @@
+#include <gmp.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -12,53 +14,102 @@
  */
 
 value builtin_add(value args, env e) {
-  int sum = 0;
-  while (args->type == TYPE_CONS) {
-    value v = args->cons.car;
-    if (v->type != TYPE_INT)
-      repl_error("Expected int\n");
+  mpq_t sum;
+  mpq_init(sum);
 
-    sum += v->i;
-    args = args->cons.cdr;
+  //Additive identity
+  mpq_set_ui(sum, 0, 1);
+  
+  while (args->type == TYPE_CONS) {
+    value v = car(args);
+    if (v->type != TYPE_NUM_EXACT)
+      repl_error("add: expects number");
+
+    mpq_add(sum, sum, v->num_exact); 
+
+    args = cdr(args);
   }
-  return value_new_int(sum);
+  
+  return value_new_exact(sum);
 }
 
 value builtin_sub(value args, env e) {
-  if (args->type == TYPE_NIL)
-    repl_error("sub: requires at least one argument\n");
+  value first = car(args);
+  value rest = cdr(args);
 
-  value first = args->cons.car;
-  value rest = args->cons.cdr;
+  mpq_t result;
+  mpq_init(result);
 
+  if(first->type != TYPE_NUM_EXACT)
+    repl_error("sub: expects number");
+
+  // unary: negate
   if (rest->type == TYPE_NIL) {
-    return value_new_int(0 - first->i); // unary: negate
+    mpq_neg(result, first->num_exact);
+    return value_new_exact(result);
   }
 
-  int result = first->i;
-  for (; rest->type != TYPE_NIL; rest = rest->cons.cdr) {
-    value v = rest->cons.car;
-    result -= v->i;
+  mpq_set(result, first->num_exact);
+  
+  for (; rest->type != TYPE_NIL; rest = cdr(rest)) {
+    value v = car(rest);
+    if(v->type != TYPE_NUM_EXACT)
+      repl_error("sub: expects number");
+    
+    mpq_sub(result, result, v->num_exact);
   }
 
-  return value_new_int(result);
+  return value_new_exact(result);
 }
 
 value builtin_mult(value args, env e) {
-  int product = 1;
+  mpq_t product;
+  mpq_init(product);
+
+  //Multiplicative identity
+  mpq_set_ui(product, 1, 1);
+
 
   while (args->type == TYPE_CONS) {
-    value v = args->cons.car;
-    if (v->type != TYPE_INT)
-      repl_error("Expected int");
+    value v = car(args);
+    if (v->type != TYPE_NUM_EXACT)
+      repl_error("add: expects number");
 
-    product *= v->i;
-    if(product < v->i)
-      repl_error("Multiplication overflow");
-    args = args->cons.cdr;
+    mpq_mul(product, product, v->num_exact); 
+
+    args = cdr(args);
   }
 
-  return value_new_int(product);
+  return value_new_exact(product);
+}
+
+value builtin_div(value args, env e) {
+  value first = car(args);
+  value rest = cdr(args);
+
+  mpq_t result;
+  mpq_init(result);
+
+   if(first->type != TYPE_NUM_EXACT)
+    repl_error("div: expects number");
+
+  // unary: negate
+  if (rest->type == TYPE_NIL) {
+    mpq_inv(result, first->num_exact);
+    return value_new_exact(result);
+  }
+
+  mpq_set(result, first->num_exact);
+  
+  for (; rest->type != TYPE_NIL; rest = cdr(rest)) {
+    value v = car(rest);
+    if(v->type != TYPE_NUM_EXACT)
+      repl_error("div: expects number");
+    
+    mpq_div(result, result, v->num_exact);
+  }
+
+  return value_new_exact(result); 
 }
 
 int bool_isnil(value args, env e) {
@@ -93,9 +144,12 @@ value builtin_true_pred(value args, env e) {
 }
 
 int bool_isnumber(value args, env e) {
-  if(args->type == TYPE_INT)
+  if(args->type == TYPE_NUM_EXACT)
     return 1;
 
+  //if(args->type == TYPE_NUM_INEXACT)
+  //  return 1;
+  
   return 0;
 }
 
@@ -114,25 +168,24 @@ value builtin_equ(value args, env e) {
     }
 
     
-    value prev = args->cons.car;
+    value prev = car(args);
     if (!bool_isnumber(prev,e)) {
         repl_error("=: arguments must be numbers");
     }
 
-    args = args->cons.cdr;
+    args = cdr(args);
 
     while (args->type != TYPE_NIL) {
-        value curr = args->cons.car;
-        if (!bool_isnumber(curr,e)) {
-            repl_error("=: arguments must be numbers");
-        }
+        value curr = car(args);
+        if (!bool_isnumber(curr, e)) 
+	  repl_error("=: arguments must be numbers");
 
-        // Compare prev <= curr
-        if (prev->i != curr->i) 
-            return value_new_bool(0);
+        // Compare prev == curr
+        if (!mpq_equal(prev->num_exact, curr->num_exact))
+	  return value_new_bool(0);
 
         prev = curr;
-        args = args->cons.cdr;
+        args = cdr(args);
     }
 
     return value_new_bool(1);
@@ -144,31 +197,29 @@ value builtin_lequ(value args, env e) {
         return value_new_bool(1);
     }
 
-    
     value prev = args->cons.car;
-    if (!bool_isnumber(prev,e)) {
+    if (!bool_isnumber(prev, e)) {
         repl_error("<=: arguments must be numbers");
     }
 
-    args = args->cons.cdr;
+    args = cdr(args);
 
     while (args->type != TYPE_NIL) {
-        value curr = args->cons.car;
-        if (!bool_isnumber(curr,e)) {
-            repl_error("<=: arguments must be numbers");
-        }
+        value curr = car(args);
 
-        // Compare prev <= curr
-        if (prev->i > curr->i) 
-            return value_new_bool(0);
+        if (!bool_isnumber(curr, e))
+          repl_error("<=: arguments must be numbers");
+
+        // Compare prev <= curr <> ! prev > curr
+        if (mpq_cmp(prev->num_exact, curr->num_exact) > 0)
+          return value_new_bool(0);
 
         prev = curr;
-        args = args->cons.cdr;
+        args = cdr(args);
     }
 
     return value_new_bool(1);
 }
-
 
 value builtin_load(value args, env e) {
     if (args->type != TYPE_CONS)

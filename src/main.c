@@ -15,13 +15,14 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <gmp.h>
 #include <setjmp.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <gc/gc.h>
 
 // TODO: segv in the repl
 
@@ -33,6 +34,7 @@
 
 
 
+
 // Stuff
 #include "env.h"
 #include "value.h"
@@ -40,16 +42,27 @@
 #include "eval.h"
 #include "repl.h"
 #include "builtin.h"
-
+#include "memory.h"
 // Functions
 int is_special(const char *sym);
+
+
+/**
+ *  Numbers and utilities
+ */
+mpq_ptr num_exact_new() {
+  mpq_ptr new = gcx_malloc(sizeof(mpq_t));
+  mpq_init(new);
+
+  return new;
+}
 
 
 /**
  * LISP values
  */
 value value_alloc(valueType type) {
-  value v = GC_MALLOC(sizeof(struct value_s));
+  value v = gcx_malloc(sizeof(struct value_s));
   v->type = type;
   return v;
 }
@@ -132,11 +145,14 @@ value value_new_cons(value car, value cdr) {
   return v;
 }
 
-value value_new_int(int x) {
-  value v = value_alloc(TYPE_INT);
-  v->i = x;
+value value_new_exact(mpq_ptr number) {
+  value v = value_alloc(TYPE_NUM_EXACT);
+
+  v->num_exact = number;
+  
   return v;
 }
+
 
 value value_new_function(function f) {
   value v = value_alloc(TYPE_FUNCTION);
@@ -151,8 +167,12 @@ value value_new_nil() {
 
 void value_print(value v) {
   switch (v->type) {
-  case TYPE_INT:
-    printf("%li", v->i);
+  case TYPE_NUM_EXACT:
+    if (mpz_cmp_ui(mpq_denref(v->num_exact), 1) == 0) {
+        gmp_printf("%Zd\n", mpq_numref(v->num_exact));
+    } else {
+        gmp_printf("%Qd\n", v->num_exact);
+    }
     break;
     
   case TYPE_SYMBOL:
@@ -213,7 +233,7 @@ struct env_s {
 };
 
 env env_new(env parent) {
-    env e = GC_MALLOC(sizeof(struct env_s));
+    env e = gcx_malloc(sizeof(struct env_s));
     e->parent = parent;
     e->bindings = value_new_nil(); 
     return e;
@@ -393,7 +413,7 @@ const char *valueTypeNames[] = {
 
 value eval(value v, env e) {
         switch (v->type) {
-        case TYPE_INT:
+        case TYPE_NUM_EXACT:
         case TYPE_NIL:
         case TYPE_FUNCTION:
 	case TYPE_BOOL:
@@ -515,7 +535,10 @@ env special_startup(env e) {
 }
 
 int main() {
+  //Memory
+  mem_startup();
 
+    
   // Load builtins
   env global_env = env_new(NULL);
   global_env = builtins_startup(global_env);
