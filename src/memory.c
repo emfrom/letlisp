@@ -9,11 +9,17 @@
 
 
 void *mem_realloc_cb(void *ptr, size_t oldsize, size_t newsize) {
+#if 1
+  ptr = gcx_realloc(ptr, newsize);
+
+#else
+  //Try is memory corruption is a problem (again)
   void *new = gcx_malloc(newsize);
 
   memcpy(new, ptr, (oldsize < newsize) ? oldsize : newsize);
 
   return new;
+#endif
 }
 
 void mem_free_cb(void *, size_t oldsize) {
