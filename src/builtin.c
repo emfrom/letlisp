@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "builtin.h"
 #include "value.h"
 #include "env.h"
 #include "repl.h"
-
 
 /**
  *  Builtin functions
@@ -72,7 +72,7 @@ int bool_isnil(value args, env e) {
   return 0;
 }
 
-value builtin_isnull(value args, env e) {
+value builtin_null_pred(value args, env e) {
   return value_new_bool(bool_isnil(args, e)); 
 }
 
@@ -86,7 +86,7 @@ int bool_istrue(value args, env e) {
   return 1; // everything else true
 }
 
-value builtin_istrue(value args, env e) {
+value builtin_true_pred(value args, env e) {
   return value_new_bool(bool_istrue(args,e));
 }
 
