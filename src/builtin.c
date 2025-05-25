@@ -132,6 +132,7 @@ value builtin_lequ(value args, env e) {
     return value_new_bool(1);
 }
 
+
 value builtin_load(value args, env e) {
     if (args->type != TYPE_CONS)
         repl_error("load need at least one argument");
@@ -141,14 +142,8 @@ value builtin_load(value args, env e) {
         if (file->type != TYPE_STRING)
             repl_error("load takes strings as arguments");
 
-        char *filename = file->string;
-        FILE *fp = fopen(filename, "r");
-        if (!fp)
-            repl_error("error: could not open file '%s'\n", filename);
+	repl_eval_file(file->string, e);
 
-        repl_eval(fp, e);
-
-        fclose(fp);
 
         args = args->cons.cdr;
     } while (args->type == TYPE_CONS);

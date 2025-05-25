@@ -49,6 +49,18 @@ value repl_eval(FILE *in, env e) {
   return result;
 }
 
+value repl_eval_file(char *filename, env e) {
+  value ret;
+
+  FILE *fp = fopen(filename, "r");
+  if (!fp)
+    repl_error("error: could not open file '%s'\n", filename);
+
+  ret = repl_eval(fp, e);
+
+  fclose(fp);
+  return ret;
+}
 
 void repl(env e) {
   //Load history 

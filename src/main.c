@@ -100,10 +100,11 @@ value value_new_symbol_nolookup(const char *text) {
   v->sym = strdup(text);
 
 
-  fprintf(stderr, "New symbol %s: ( %s , %p)\n",
+  /* fprintf(stderr, "New symbol %s: ( %s , %p)\n",
 	  text,
 	  v->sym,
 	  v);
+  */
   
   return v;
 }
@@ -113,7 +114,7 @@ value value_new_symbol(const char *text, env e) {
   value v = env_exists(e, text);
 
   if(!bool_isnil(v,e)) {
-    fprintf(stderr,"Reusing symbol %s: ( %s, %p )\n", text, car(v)->sym, car(v));
+    //fprintf(stderr,"Reusing symbol %s: ( %s, %p )\n", text, car(v)->sym, car(v));
     return car(v);
   }
   //All special forms are already added 
@@ -439,6 +440,9 @@ int main() {
   global_env = builtins_startup(global_env);
   global_env = special_startup(global_env);
 
+  // Load lisp startup
+  repl_eval_file("minilisp.lsp", global_env);
+  
   // Go for it
   repl(global_env);
 
