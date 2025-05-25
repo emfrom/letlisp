@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include "builtin.h"
 #include "value.h"
@@ -99,12 +100,47 @@ int bool_isnumber(value args, env e) {
 }
 
 value builtin_isnumber(value args, env e) {
-  return value_new_bool(bool_isnumber(args,e));
+  assert(args->type == TYPE_CONS);
+  
+
+  return value_new_bool(bool_isnumber(car(args),e));
+}
+
+
+value builtin_equ(value args, env e) {
+    if (args->type == TYPE_NIL) {
+        // Composable logic dictates
+        return value_new_bool(1);
+    }
+
+    
+    value prev = args->cons.car;
+    if (!bool_isnumber(prev,e)) {
+        repl_error("=: arguments must be numbers");
+    }
+
+    args = args->cons.cdr;
+
+    while (args->type != TYPE_NIL) {
+        value curr = args->cons.car;
+        if (!bool_isnumber(curr,e)) {
+            repl_error("=: arguments must be numbers");
+        }
+
+        // Compare prev <= curr
+        if (prev->i != curr->i) 
+            return value_new_bool(0);
+
+        prev = curr;
+        args = args->cons.cdr;
+    }
+
+    return value_new_bool(1);
 }
 
 value builtin_lequ(value args, env e) {
     if (args->type == TYPE_NIL) {
-        // Combosable logic dictates
+        // Composable logic dictates
         return value_new_bool(1);
     }
 
@@ -248,6 +284,7 @@ value builtin_pair_pred(value args, env e) {
 }
 
 
+
 struct builtin_functions {
   char *name;
   function fn;
@@ -262,6 +299,7 @@ struct builtin_functions startup[] = {
     {"pair?", builtin_pair_pred},
     {"eq?", builtin_eq_pred},
     {"lequ", builtin_lequ},
+    {"equ", builtin_equ},
     {"load", builtin_load},
     {"cons", builtin_cons},
     {"car", builtin_car},
