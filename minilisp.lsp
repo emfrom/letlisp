@@ -77,3 +77,16 @@
 (if (not (eq? #f (list? 42))) (print "Failed: (list? 42)"))
 (if (not (eq? #f (list? #f))) (print "Failed: (list? #f)"))
 
+;; =
+(if (not (eq? #t (= 3 3))) (print "Failed: (= 3 3)"))
+(if (not (eq? #t (= 3 3 3))) (print "Failed: (= 3 3 3)"))
+(if (not (eq? #f (= 3 4))) (print "Failed: (= 3 4)"))
+(if (not (eq? #f (= 3 3 4))) (print "Failed: (= 3 3 4)"))
+
+;; <=
+(if (not (eq? #t (<= 1 2))) (print "Failed: (<= 1 2)"))
+(if (not (eq? #t (<= 2 2))) (print "Failed: (<= 2 2)"))
+(if (not (eq? #t (<= 1 2 3 3 3))) (print "Failed: (<= 1 2 3 3 3)"))
+(if (not (eq? #f (<= 2 1))) (print "Failed: (<= 2 1)"))
+(if (not (eq? #f (<= 1 2 1))) (print "Failed: (<= 1 2 1)"))
+
