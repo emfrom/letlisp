@@ -61,7 +61,7 @@ value builtin_mult(value args, env e) {
 }
 
 int bool_isnil(value args, env e) {
-  //Needed since empty list is sometimes evaled to nil
+  //Needed since empty list evaled to nil
   if(args->type == TYPE_NIL) 
     return 1;
 
@@ -260,7 +260,7 @@ struct builtin_functions startup[] = {
     {"null?", builtin_null_pred},
     {"pair?", builtin_pair_pred},
     {"eq?", builtin_eq_pred},
-    {"<=", builtin_lequ},
+    {"lequ", builtin_lequ},
     {"load", builtin_load},
     {"cons", builtin_cons},
     {"car", builtin_car},
