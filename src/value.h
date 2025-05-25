@@ -46,6 +46,15 @@ struct value_s {
   };
 };
 
+// Macros
+#define car(v) ((v)->cons.car)
+#define cdr(v) ((v)->cons.cdr)
+#define cadr(v) (car(cdr(v)))
+#define caar(v) (car(car(v)))
+#define cdar(v) (cdr(car(v)))
+#define cddr(v) (cdr(cdr(v)))
+
+
 // Value functions
 value value_alloc(valueType type);
 value value_new_string(char *str);
