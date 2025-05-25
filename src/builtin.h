@@ -7,6 +7,6 @@
 int bool_isnil(value args, env e);
 int bool_istrue(value args, env e);
 
-env startup_load_builtins();
+env builtins_startup(env e);
 
 #endif

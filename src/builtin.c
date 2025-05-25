@@ -228,6 +228,21 @@ value builtin_debug(value args, env e) {
   return value_new_bool(1);
 }
 
+value builtin_debugenv(value args, env e) {
+  env_dump(e);
+
+  return value_new_bool(1);
+}
+
+value builtin_eq_pred(value args, env e) {
+  if(args->type != TYPE_CONS ||
+     cdr(args)->type != TYPE_CONS ||
+     cddr(args)->type != TYPE_NIL)
+    repl_error("eq? takes exactly two arguments");
+  
+  return car(args) == cadr(args) ? value_new_bool(1) : value_new_bool(0);
+}
+
 struct builtin_functions {
   char *name;
   function fn;
@@ -238,8 +253,9 @@ struct builtin_functions startup[] = {
     {"-", builtin_sub},
     {"*", builtin_mult},
     {"true?", builtin_istrue},
-    {"<=", builtin_lequ},
     {"null?", builtin_isnull},
+    {"eq?", builtin_eq_pred},
+    {"<=", builtin_lequ},
     {"load", builtin_load},
     {"cons", builtin_cons},
     {"car", builtin_car},
@@ -248,12 +264,14 @@ struct builtin_functions startup[] = {
     {"display", builtin_display},
     {"newline", builtin_newline},
     {"debug", builtin_debug},
+    {"debugenv", builtin_debugenv},
     {NULL, NULL}};
 
-env startup_load_builtins() {
-  env e = env_new(NULL);
+env builtins_startup(env e) {
   
   for (int i = 0; startup[i].name != NULL; i++) {
+
+    //To void #include loop's 
     value symbol = value_alloc(TYPE_SYMBOL);
     value function = value_alloc(TYPE_FUNCTION);
 

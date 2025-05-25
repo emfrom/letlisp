@@ -162,7 +162,7 @@ token token_getnext(FILE *in) {
  * Simple parser
  */
 
-value parse_list(FILE *in) {
+value parse_list(FILE *in, env e) {
   token t = token_getnext(in);
 
   if(t.type == TOK_EOF)
@@ -173,13 +173,13 @@ value parse_list(FILE *in) {
 
   token_push(t);
 
-  value car_val = parse_expression(in);
-  value cdr_val = parse_list(in);
+  value car_val = parse_expression(in,e);
+  value cdr_val = parse_list(in, e);
 
   return value_new_cons(car_val, cdr_val);
 }
 
-value parse_expression(FILE *in) {
+value parse_expression(FILE *in, env e) {
   token t = token_getnext(in);
 
   if(t.type == TOK_EOF) {
@@ -188,12 +188,11 @@ value parse_expression(FILE *in) {
   
   switch (t.type) {
   case TOK_LPAREN:
-    return parse_list(in);
+    return parse_list(in, e);
 
   case TOK_QUOTE:
-    return value_new_cons(
-        value_new_symbol("quote"),
-        value_new_cons(parse_expression(in), value_new_nil()));
+    return value_new_cons(value_new_symbol("quote", e),
+        value_new_cons(parse_expression(in,e), value_new_nil()));
 
   case TOK_BOOL:
     return value_new_bool(t.text[1] == 't');
@@ -202,7 +201,7 @@ value parse_expression(FILE *in) {
     return value_new_int(atoi(t.text));
 
   case TOK_SYMBOL:
-    return value_new_symbol(t.text);
+    return value_new_symbol(t.text, e);
 
   case TOK_STRING:
     return value_new_string(t.text);

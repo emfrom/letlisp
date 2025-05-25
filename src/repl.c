@@ -33,11 +33,12 @@ void repl_error(const char *fmt, ...) {
   longjmp(repl_env, 1);
 }
 
+
 value repl_eval(FILE *in, env e) {
   value result;
 
   for (;;) {
-    value expr = parse_expression(in);
+    value expr = parse_expression(in, e);
     if (bool_isnil(expr, e))
       break;
 
@@ -47,6 +48,7 @@ value repl_eval(FILE *in, env e) {
 
   return result;
 }
+
 
 void repl(env e) {
   //Load history 

@@ -5,7 +5,7 @@
 
 #include "value.h"
 
-value parse_expression(FILE *in);
-value parse_list(FILE *in);
+value parse_expression(FILE *in,env e);
+value parse_list(FILE *in, env e);
 
 #endif

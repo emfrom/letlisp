@@ -85,15 +85,41 @@ value value_new_closure(value params, value body, env e) {
   return v;
 }
 
-value value_new_symbol(const char *text) {
+value value_new_special(const char *text) {
+  value v = value_alloc(TYPE_SPECIAL);
+  
+  v->sym = (char *) text;
+  
+  return v;
+}
+
+value value_new_symbol_nolookup(const char *text) {
   value v = value_alloc(TYPE_SYMBOL);
 
-  if (is_special(text))
-    v->type = TYPE_SPECIAL;
 
   v->sym = strdup(text);
 
+
+  fprintf(stderr, "New symbol %s: ( %s , %p)\n",
+	  text,
+	  v->sym,
+	  v);
+  
   return v;
+}
+
+value value_new_symbol(const char *text, env e) {
+
+  value v = env_exists(e, text);
+
+  if(!bool_isnil(v,e)) {
+    fprintf(stderr,"Reusing symbol %s: ( %s, %p )\n", text, car(v)->sym, car(v));
+    return car(v);
+  }
+  //All special forms are already added 
+  assert(!is_special(text));
+
+  return value_new_symbol_nolookup(text);
 }
 
 value value_new_cons(value car, value cdr) {
@@ -191,8 +217,6 @@ env env_new(env parent) {
 }
 
 void env_set(env e, value sym, value val) {
-  assert(sym->type == TYPE_SYMBOL);
-
   // New
   value pair = value_new_cons(sym, val);
   e->bindings = value_new_cons(pair, e->bindings);
@@ -208,18 +232,40 @@ env env_extend(env parent, value params, value args) {
   return e;
 }
 
-value env_lookup(env e, const char *name) {
+value env_exists(env e, const char *name) {
   for (; e != NULL; e = e->parent)
-    for (value bind = e->bindings;
-	 bind->type == TYPE_CONS;
-         bind = bind->cons.cdr) {
-      value pair = bind->cons.car;
+    for (value bind = e->bindings; bind->type == TYPE_CONS;
+         bind = cdr(bind)) {
+      value pair = car(bind);
 
-      if (strcmp(pair->cons.car->sym, name) == 0)
-        return pair->cons.cdr;
+      if (strcmp(car(pair)->sym, name) == 0) {
+        return pair;
+      }
     }
 
-  repl_error("Unbound symbol: %s\n", name);
+  return value_new_nil();
+}
+
+value env_lookup(env e, const char *name) {
+  value v = env_exists(e, name);
+
+  if(bool_isnil(v, e))
+    repl_error("Unbound symbol: %s\n", name);
+
+  return cdr(v);
+}
+
+void env_dump(env e) {
+  //Debug
+  value v = e->bindings;
+
+  while(!bool_isnil(v, e)) {
+    value p = car(v);
+
+    printf("%s(%s): %p\n", car(p)->sym, car(p)->type == TYPE_SPECIAL ? "spec" : "sym", cdr(p));
+
+    v = cdr(v);
+  }
 }
 
 /**
@@ -236,7 +282,7 @@ value eval_list(value lst, env e) {
 }
 
 value eval_define(value args, env e) {
-    value sym = args->cons.car;
+  value sym = car(args);
 
     if (sym->type != TYPE_SYMBOL)
         repl_error("define: first argument must be a symbol (for now)");
@@ -377,12 +423,21 @@ value eval_special(value head, value args,env e) {
   repl_error("Unknown special form: %s", head->sym);
 }
 
+env special_startup(env e) {
+  for (int i = 0; special_forms[i] != NULL; i++)
+    env_set(e,
+	    value_new_special(special_forms[i]),
+	    value_new_function(special_handlers[i]));
+
+  return e;
+}
 
 int main() {
 
   // Load builtins
-  env global_env;
-  global_env = startup_load_builtins();
+  env global_env = env_new(NULL);
+  global_env = builtins_startup(global_env);
+  global_env = special_startup(global_env);
 
   // Go for it
   repl(global_env);
