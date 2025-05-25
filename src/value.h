@@ -23,6 +23,7 @@ typedef enum {
   TYPE_STRING
 } valueType;
 
+
 typedef struct {
   value params; // list of symbols
   value body;   // list of expressions

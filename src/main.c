@@ -27,7 +27,6 @@
 // TODO: (define (func a b c) ( .. )) form
 // TODO: Multiline input to readline
 // TODO: Finish refactor into small files
-// TOTO: Auto-load of an lisp-file on startup
 
 
 
@@ -344,7 +343,7 @@ value eval_if(value args, env env) {
     value then_branch = args->cons.cdr->cons.car;
 
     // Extract else branch (optional)
-    value else_branch;
+    value else_branch = value_new_nil();
     if (args->cons.cdr->cons.cdr->type == TYPE_CONS)
         else_branch = args->cons.cdr->cons.cdr->cons.car;
 
@@ -357,6 +356,17 @@ value eval_if(value args, env env) {
         return eval(else_branch, env);
 }
 
+const char *valueTypeNames[] = {
+    "cons",
+    "int",
+    "symbol",
+    "nil",
+    "function",
+    "special",
+    "closure",
+    "bool",
+    "string"
+};
 
 value eval(value v, env e) {
         switch (v->type) {
@@ -365,6 +375,7 @@ value eval(value v, env e) {
         case TYPE_FUNCTION:
 	case TYPE_BOOL:
 	case TYPE_STRING:
+	case TYPE_SPECIAL:
         return v;
 
         case TYPE_SYMBOL:
@@ -389,7 +400,7 @@ value eval(value v, env e) {
         }
 
         default:
-        repl_error("Unknown type in eval\n");
+	  repl_error("Unknown type in eval: %s\n", valueTypeNames[v->type]);
         exit(1);
         }
 }
@@ -430,6 +441,18 @@ value eval_and(value args, env e) {
   return value_new_bool(1);
 }
 
+value eval_eval(value args, env env) {
+    if (args->type != TYPE_CONS)
+        repl_error("eval: expected 1 argument");
+
+    value expr = args->cons.car;
+
+    if (args->cons.cdr->type != TYPE_NIL)
+        repl_error("eval: too many arguments");
+
+    return eval(expr, env);
+}
+
 
 value eval_np(value args, env e) {
   repl_error("Special form not implemented");
@@ -437,10 +460,11 @@ value eval_np(value args, env e) {
 
 static const char *special_forms[] = {
   "lambda", "define", "quote",
-  "if", "or", "and", NULL};
+  "if", "or", "and", "eval", NULL};
 
 static const function special_handlers[] = {eval_lambda, eval_define,
-                                            eval_quote, eval_if, eval_or, eval_and};
+                                            eval_quote, eval_if, eval_or,
+					    eval_and, eval_eval };
 
 int is_special(const char *sym) {
   for (int i = 0; special_forms[i] != NULL; i++)
