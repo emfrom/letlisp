@@ -3,8 +3,7 @@
 (newline)
 
 ;; Simple aliasing
-(define <= lequ)
-
+(define (> x) (not x))
 
 ;; Functions as lambdas
 (define not
