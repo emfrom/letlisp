@@ -118,6 +118,7 @@ value value_new_special(const char *text) {
   return v;
 }
 
+
 value value_new_symbol_nolookup(const char *text) {
   value v = value_alloc(TYPE_SYMBOL);
 
@@ -142,6 +143,7 @@ value value_new_symbol(const char *text, env e) {
     //fprintf(stderr,"Reusing symbol %s: ( %s, %p )\n", text, car(v)->sym, car(v));
     return car(v);
   }
+  
   //All special forms are already added 
   assert(!is_special(text));
 
@@ -178,6 +180,7 @@ value value_new_nil() {
 void value_print(value v) {
   switch (v->type) {
   case TYPE_NUM_EXACT:
+    //Leave this one as it, dont use string function
     if (mpz_cmp_ui(mpq_denref(v->num_exact), 1) == 0) {
         gmp_printf("%Zd", mpq_numref(v->num_exact));
     } else {
