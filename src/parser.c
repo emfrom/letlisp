@@ -6,6 +6,7 @@
 #include <gmp.h>
 
 
+#include "builtin.h"
 #include "value.h"
 #include "repl.h"
 #include "parser.h"
@@ -169,6 +170,21 @@ token token_getnext(FILE *in) {
 /**
  * Simple parser
  */
+
+// Greey parse all sexps in input 
+value parse_all(FILE *in, env e) {j
+  value exprs = value_new_nil();
+  value *tail = &exprs;
+
+  for(;;) {
+    value expr = parse_expression(in, e);
+    if (bool_isnil(expr, e))
+      return exprs;
+
+    *tail = value_new_cons(expr, value_new_nil());
+    tail = &(*tail)->cons.cdr;
+  }
+}
 
 value parse_list(FILE *in, env e) {
   token t = token_getnext(in);

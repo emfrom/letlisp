@@ -34,18 +34,17 @@ void repl_error(const char *fmt, ...) {
 }
 
 value repl_eval(FILE *in, env e) {
-  value result = value_new_nil();
 
-  for (;;) {
-    value expr = parse_expression(in, e);
-    if (bool_isnil(expr, e))
-      break;
+  value expr = parse_all(in, e);
 
-    // Eval
-    result = eval(expr, e);
-  }
+  if (bool_isnil(expr, e))
+    return value_new_nil();
 
-  return result;
+  //Prepend a begin for idiomatic REPL behaviour 
+  expr = value_new_cons(value_new_symbol("begin",e),
+			expr);
+			
+  return eval(expr, e);
 }
 
 value repl_eval_file(char *filename, env e) {
