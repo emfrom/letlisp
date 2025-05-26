@@ -307,12 +307,12 @@ void env_dump(env e) {
  */
 
 value eval_list(value lst, env e) {
-    if (lst->type == TYPE_NIL)
-        return lst;
+  if (lst->type == TYPE_NIL)
+    return lst;
 
-    value head = eval(lst->cons.car, e);
-    value tail = eval_list(lst->cons.cdr, e);
-    return value_new_cons(head, tail);
+  value head = eval(lst->cons.car, e);
+  value tail = eval_list(lst->cons.cdr, e);
+  return value_new_cons(head, tail);
 }
 
 value eval_define(value args, env e) {
@@ -507,6 +507,17 @@ value eval_eval(value args, env env) {
     return eval(expr, env);
 }
 
+//Argument list in an unevaled sequence of sexps to eval 
+value eval_begin(value args, env e) {
+  value result = value_new_nil();
+
+  for(; args->type == TYPE_CONS; args = cdr(args))
+    result = eval(car(args), e);    
+
+  return result;
+}
+
+
 
 value eval_np(value args, env e) {
   repl_error("Special form not implemented");
@@ -514,11 +525,12 @@ value eval_np(value args, env e) {
 
 static const char *special_forms[] = {
   "lambda", "define", "quote",
-  "if", "or", "and", "eval", NULL};
+  "if", "or", "and", "eval", "begin",
+  NULL};
 
 static const function special_handlers[] = {eval_lambda, eval_define,
                                             eval_quote, eval_if, eval_or,
-					    eval_and, eval_eval };
+					    eval_and, eval_eval, eval_begin };
 
 int is_special(const char *sym) {
   for (int i = 0; special_forms[i] != NULL; i++)
