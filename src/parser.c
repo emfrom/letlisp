@@ -22,7 +22,8 @@ typedef enum {
   TOK_SYMBOL,
   TOK_NUMBER,
   TOK_BOOL,
-  TOK_STRING
+  TOK_STRING,
+  TOK_COMMENT
 } tokenType;
 
 typedef struct {
@@ -84,7 +85,7 @@ token token_getnext(FILE *in) {
   //TODO: More robust
   tok.text = buf;
 
-  skip_noncode(in);
+  skip_ws(in);
   
   int c = fgetc(in);
 
@@ -105,6 +106,16 @@ token token_getnext(FILE *in) {
 
   if (c == '\'') {
     tok.type = TOK_QUOTE;
+    return tok;
+  }
+
+  if (c == ';') {
+    tok.type = TOK_COMMENT;
+
+    //Skip comment 
+    for(; c != EOF && c != '\n'; c = fgetc(in))
+      ;
+
     return tok;
   }
 
@@ -196,48 +207,49 @@ value parse_list(FILE *in, env e) {
 }
 
 value parse_expression(FILE *in, env e) {
-  token t = token_getnext(in);
+  for (;;) {
+    token t = token_getnext(in);
 
-  if(t.type == TOK_EOF) {
-    return value_new_nil();
-  }
-  
-  switch (t.type) {
-  case TOK_LPAREN:
-    return parse_list(in, e);
+    switch (t.type) {
+    case TOK_LPAREN:
+      return parse_list(in, e);
 
-  case TOK_QUOTE:
-    return value_new_cons(value_new_symbol("quote", e),
-        value_new_cons(parse_expression(in,e), value_new_nil()));
+    case TOK_QUOTE:
+      return value_new_cons(
+          value_new_symbol("quote", e),
+          value_new_cons(parse_expression(in, e), value_new_nil()));
 
-  case TOK_BOOL:
-    return value_new_bool(t.text[1] == 't');
+    case TOK_BOOL:
+      return value_new_bool(t.text[1] == 't');
 
-  case TOK_NUMBER: {
-    mpq_ptr exact = num_exact_new();
+    case TOK_NUMBER: {
+      mpq_ptr exact = num_exact_new();
 
-    if (0 != mpq_set_str(exact, t.text, 10))
-      repl_error("Invalid number string: %s", t.text);
+      if (0 != mpq_set_str(exact, t.text, 10))
+        repl_error("Invalid number string: %s", t.text);
 
-    mpq_canonicalize(exact);
+      mpq_canonicalize(exact);
 
-    return value_new_exact(exact);
-  }
-    
-  case TOK_SYMBOL:
-    return value_new_symbol(t.text, e);
+      return value_new_exact(exact);
+    }
 
-  case TOK_STRING:
-    return value_new_string(strdup(t.text));
+    case TOK_SYMBOL:
+      return value_new_symbol(t.text, e);
 
-  case TOK_RPAREN:
-    repl_error("Unexpected ')' outside list");
+    case TOK_STRING:
+      return value_new_string(strdup(t.text));
 
-  case TOK_EOF:
-    repl_error("Unexpected EOF");
+    case TOK_RPAREN:
+      repl_error("Unexpected ')' outside list");
 
-  default:
-    repl_error("Unknown token type");
+    case TOK_EOF:
+      return value_new_nil();
+
+    case TOK_COMMENT:
+      continue;
+
+    default:
+      repl_error("Unknown token type");
+    }
   }
 }
-
