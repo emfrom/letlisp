@@ -344,7 +344,7 @@ value builtin_number_to_string(value args, env e) {
 
   int base = 10;
   if(cdr(args)->type == TYPE_CONS) {
-    if(!bool_isnumber(cadr(args),e) || bool_isnil(cddr(args), e))
+    if(!bool_isnumber(cadr(args),e) || !bool_isnil(cddr(args), e))
       repl_error("number->string: takes 1 or 2 numbers as arguments");
 
     mpq_ptr base_q = cadr(args)->num_exact;
