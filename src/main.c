@@ -24,7 +24,6 @@
 #include <string.h>
 #include <stdint.h>
 
-// TODO: segv in the repl
 
 // TODO: Parse with regex
 // TODO: Continuations (for io as well?)
