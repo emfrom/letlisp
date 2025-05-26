@@ -67,9 +67,19 @@ value value_alloc(valueType type) {
   return v;
 }
 
+/**
+ * new_string
+ *
+ * Arg is copied as reference
+ */
 value value_new_string(char *str) {
   value v = value_alloc(TYPE_STRING);
-  v->string = strdup(str);
+
+  // Pass in allocated string
+  // v->string = strdup(str);
+
+  v->string = str;
+  
   return v;
 }
 

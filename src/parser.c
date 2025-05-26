@@ -231,7 +231,7 @@ value parse_expression(FILE *in, env e) {
     return value_new_symbol(t.text, e);
 
   case TOK_STRING:
-    return value_new_string(t.text);
+    return value_new_string(strdup(t.text));
 
   case TOK_RPAREN:
     repl_error("Unexpected ')' outside list");
