@@ -422,14 +422,15 @@ const char *valueTypeNames[] = {
     "string"
 };
 
+
 value eval(value v, env e) {
         switch (v->type) {
         case TYPE_NUM_EXACT:
         case TYPE_NIL:
         case TYPE_FUNCTION:
-	case TYPE_BOOL:
-	case TYPE_STRING:
-	case TYPE_SPECIAL:
+        case TYPE_BOOL:
+        case TYPE_STRING:
+        case TYPE_SPECIAL:
         return v;
 
         case TYPE_SYMBOL:
@@ -454,10 +455,11 @@ value eval(value v, env e) {
         }
 
         default:
-	  repl_error("Unknown type in eval: %s\n", valueTypeNames[v->type]);
-        exit(1);
+          repl_error("Unknown type in eval: %s\n", valueTypeNames[v->type]);
+          exit(1);
         }
 }
+
 
 /**
  * Special forms
