@@ -378,6 +378,7 @@ struct builtin_functions startup[] = {
     {"null?", builtin_null_pred},
     {"pair?", builtin_pair_pred},
     {"number?", builtin_isnumber},
+    {"number->string", builtin_number_to_string},
     {"eq?", builtin_eq_pred},
     {"<=", builtin_lequ},
     {"=", builtin_equ},
