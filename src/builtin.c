@@ -331,6 +331,39 @@ value builtin_pair_pred(value args, env e) {
   return car(args)->type == TYPE_CONS ? value_new_bool(1) : value_new_bool(0);
 }
 
+char* base_exact_to_string(mpq_t number, int base) {
+  // integer?
+  if (mpz_cmp_ui(mpq_denref(number), 1) == 0)
+    return mpz_get_str(NULL, base, mpq_numref(number));
+
+  // Q 
+  return mpq_get_str(NULL, base, number);
+}
+
+value builtin_number_to_string(value args, env e) {
+  if(!bool_isnumber(car(args), e))
+    repl_error("number->string: takes 1 or 2 numbers as arguments");
+
+  int base = 10;
+  if(cdr(args)->type == TYPE_CONS) {
+    if(!bool_isnumber(cadr(args),e) || bool_isnil(cddr(args), e))
+      repl_error("number->string: takes 1 or 2 numbers as arguments");
+
+    mpq_ptr base_q = cadr(args)->num_exact;
+    mpq_canonicalize(base_q);
+    if(mpz_cmp_ui(mpq_denref(base_q), 1) != 0 ||
+       mpq_sgn(base_q) <= 0)
+      repl_error("number->string: base argument must be a positive whole number");
+
+    base = mpz_get_si(mpq_numref(base_q));
+  }
+
+  char *string;
+  string = base_exact_to_string(car(args)->num_exact, base);
+
+  return value_new_string(string);
+  
+}
 
 
 struct builtin_functions {
@@ -346,6 +379,7 @@ struct builtin_functions startup[] = {
     {"true?", builtin_true_pred},
     {"null?", builtin_null_pred},
     {"pair?", builtin_pair_pred},
+    {"number?", builtin_isnumber},
     {"eq?", builtin_eq_pred},
     {"<=", builtin_lequ},
     {"=", builtin_equ},
