@@ -110,21 +110,19 @@ value builtin_div(value args, env e) {
 }
 
 int bool_isnil(value args, env e) {
-  //Needed since empty list evaled to nil
   if(args->type == TYPE_NIL) 
     return 1;
-
-  if(args->type == TYPE_CONS &&
-     args->cons.car->type == TYPE_NIL)
-     return 1;
   
   return 0;
 }
 
 value builtin_null_pred(value args, env e) {
-  return value_new_bool(bool_isnil(args, e)); 
+  if(bool_isnil(args, e))
+    repl_error("null? takes exactly one argument");
+  
+  return value_new_bool(bool_isnil(car(args), e)); 
 }
-
+j
 int bool_istrue(value args, env e) {
   if (args->type == TYPE_BOOL)
     return args->boolean;
