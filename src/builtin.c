@@ -122,7 +122,7 @@ value builtin_null_pred(value args, env e) {
   
   return value_new_bool(bool_isnil(car(args), e)); 
 }
-j
+
 int bool_istrue(value args, env e) {
   if (args->type == TYPE_BOOL)
     return args->boolean;

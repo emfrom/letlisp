@@ -3,7 +3,7 @@
 (newline)
 
 ;; Simple aliasing
-(define (> x) (not x))
+
 
 ;; Functions as lambdas
 (define not
