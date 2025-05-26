@@ -11,6 +11,8 @@
 #include "parser.h"
 #include "numbers.h"
 
+//TODO: Go over and make sure error state on fp is properly handled
+
 /**
  * Minimalist lexer
  */
@@ -186,6 +188,8 @@ value parse_list(FILE *in, env e) {
 }
 
 value parse_expression(FILE *in, env e) {
+  
+  //Loop needed for comment, aka skip
   for (;;) {
     token t = token_getnext(in);
 

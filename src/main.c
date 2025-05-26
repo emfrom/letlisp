@@ -27,7 +27,6 @@
 
 // TODO: Parse with regex
 // TODO: Continuations (for io as well?)
-// TODO: (define (func a b c) ( .. )) form
 // TODO: Multiline input to readline
 // TODO: Finish refactor into small files
 
