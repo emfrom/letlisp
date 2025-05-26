@@ -517,20 +517,50 @@ value eval_begin(value args, env e) {
   return result;
 }
 
+value eval_cond(value args, env e) {
+  for (; args->type == TYPE_CONS; args = cdr(args)) {
+    value clause = car(args);
+    if (clause->type != TYPE_CONS)
+      repl_error("cond: invalid clause");
 
+    value predicate = car(clause);
+    
+    if (predicate->type == TYPE_SYMBOL && strcmp(predicate->sym, "else") == 0) {
+      // (else expr1 expr2 ...)
+      return eval_begin(cdr(clause), e);
+    }
+
+    value result = eval(predicate, e);
+    if (bool_istrue(result, e)) {
+      // (predicate expr1 expr2 ...)
+      return eval_begin(cdr(clause), e);
+    }
+  }
+
+  return value_new_nil(); // no clause matched
+}
 
 value eval_np(value args, env e) {
   repl_error("Special form not implemented");
 }
 
 static const char *special_forms[] = {
-  "lambda", "define", "quote",
-  "if", "or", "and", "eval", "begin",
+  "lambda", "define", "quote", "if", "or", "and",
+  "eval", "begin", "cond",
   NULL};
 
-static const function special_handlers[] = {eval_lambda, eval_define,
-                                            eval_quote, eval_if, eval_or,
-					    eval_and, eval_eval, eval_begin };
+static const function special_handlers[] = {
+    eval_lambda,
+    eval_define,
+    eval_quote,
+    eval_if,
+    eval_or,
+    eval_and,
+    eval_eval,
+    eval_begin,
+    eval_cond
+};
+
 
 int is_special(const char *sym) {
   for (int i = 0; special_forms[i] != NULL; i++)
