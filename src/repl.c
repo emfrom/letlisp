@@ -34,7 +34,7 @@ void repl_error(const char *fmt, ...) {
 }
 
 value repl_eval(FILE *in, env e) {
-  value result;
+  value result = value_new_nil();
 
   for (;;) {
     value expr = parse_expression(in, e);
