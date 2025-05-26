@@ -216,8 +216,8 @@ value parse_expression(FILE *in, env e) {
   case TOK_NUMBER: {
     mpq_ptr exact = num_exact_new();
 
-    if (!strchr(t.text, '/'))
-      strcat(t.text, "/1");
+    //if (!strchr(t.text, '/'))
+    //jstrcat(t.text, "/1");
 
     if (0 != mpq_set_str(exact, t.text, 10))
       repl_error("Invalid number string: %s", t.text);
