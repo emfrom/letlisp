@@ -38,28 +38,6 @@ int peek(FILE *in) {
   return c;
 }
 
-void skip_ws(FILE *in) {
-  while (isspace(peek(in)))
-    fgetc(in);
-}
-
-void skip_noncode(FILE *in) {
-  skip_ws(in);
-
-  //Skip comments 
-  while(';' == peek(in)) {
-    int c;
-    do {
-      c = fgetc(in);
-
-      if(c == EOF)
-	return;
-      
-    } while(c != '\n');
-    skip_ws(in);
-  }
-}
-
 // Store for next token
 static token tok = {0};
 int token_pushed = 0;
@@ -85,10 +63,11 @@ token token_getnext(FILE *in) {
   //TODO: More robust
   tok.text = buf;
 
-  skip_ws(in);
+  //Skip whitespace
+  int c; 
+  while (isspace(c = fgetc(in)))
+    ;
   
-  int c = fgetc(in);
-
   if (c == EOF) {
     tok.type = TOK_EOF;
     return tok;
