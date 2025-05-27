@@ -3,7 +3,8 @@ AUTOMAKE_OPTIONS = subdir-objects
 AM_CPPFLAGS = -I$(srcdir)/src -Isrc \
 	$(READLINE_CFLAGS) \
 	$(GC_CFLAGS) \
-	$(GMP_CFLAGS)
+	$(GMP_CFLAGS) \
+	-msse4.2
 
 bin_PROGRAMS = letlisp
 letlisp_SOURCES = \
@@ -12,7 +13,8 @@ letlisp_SOURCES = \
 	src/parser.c \
 	src/builtin.c \
 	src/memory.c \
-	src/env.c
+	src/env.c \
+	src/hashtable.c
 
 
 letlisp_LDADD = \

@@ -25,3 +25,4 @@ tags
 /.letlisp_history
 /.Po
 /letlisp
+*.test
