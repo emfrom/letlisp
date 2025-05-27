@@ -542,13 +542,46 @@ value eval_cond(value args, env e) {
   return value_new_nil(); // no clause matched
 }
 
+value eval_let(value args, env e) {
+
+  if (args->type != TYPE_CONS)
+    repl_error("let: missing bindings and body");
+
+  value bindings = car(args);
+  value body = cdr(args);
+
+  if (bindings->type != TYPE_CONS && bindings->type != TYPE_NIL)
+    repl_error("let: bindings must be a list");
+
+  env new_env = env_extend(e, value_new_nil(), value_new_nil());
+
+  // Iterate over bindings
+  for (; bindings->type == TYPE_CONS; bindings = cdr(bindings)) {
+    value bind = car(bindings);
+    if (bind->type != TYPE_CONS || cdr(bind)->type != TYPE_CONS ||
+        cddr(bind)->type != TYPE_NIL)
+      repl_error("let: each binding must be (var expr)");
+
+    value var = car(bind);
+    value expr = cadr(bind);
+
+    if (var->type != TYPE_SYMBOL)
+      repl_error("let: binding variable must be a symbol");
+
+    value val = eval(expr, e); // old environment !!
+    env_set(new_env, var, val);
+  }
+
+  return eval_begin(body, new_env);
+}
+
 value eval_np(value args, env e) {
   repl_error("Special form not implemented");
 }
 
 static const char *special_forms[] = {
   "lambda", "define", "quote", "if", "or", "and",
-  "eval", "begin", "cond",
+  "eval", "begin", "cond", "let",
   NULL};
 
 static const function special_handlers[] = {
@@ -560,7 +593,8 @@ static const function special_handlers[] = {
     eval_and,
     eval_eval,
     eval_begin,
-    eval_cond
+    eval_cond,
+    eval_let
 };
 
 

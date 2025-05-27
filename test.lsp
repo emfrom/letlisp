@@ -52,3 +52,9 @@
 (if (not (= 3 (cond (#t 1 2 3)))) (print "Failed: (cond (#t 1 2 3))"))
 (if (not (eq? '() (cond (#f 1) (#f 2)))) (print "Failed: (cond (#f 1) (#f 2))"))
 
+;; let
+(if (not (= 3 (let ((x 1) (y 2)) (+ x y)))) (print "Failed: let basic binding"))
+(if (not (= 4 (let ((x 4)) x))) (print "Failed: let single binding"))
+(if (not (= 10 (let ((a 1) (b 2) (c 5)) (* a b c)))) (print "Failed: let multiple bindings"))
+(if (not (= 7 (let ((x 3)) (let ((y 4)) (+ x y))))) (print "Failed: nested let"))
+(if (not (= 6 (let ((x 3)) (let ((x 6)) x)))) (print "Failed: let shadowing"))
