@@ -36,9 +36,9 @@ void env_set(env e, value sym, value val) {
 env env_extend(env parent, value params, value args) {
   env e = env_new(parent);
   while (params->type == TYPE_CONS && args->type == TYPE_CONS) {
-    env_set(e, params->cons.car, args->cons.car);
-    params = params->cons.cdr;
-    args = args->cons.cdr;
+    env_set(e, car(params), car(args));
+    params = cdr(params);
+    args = cdr(args);
   }
   return e;
 }

@@ -221,14 +221,14 @@ value builtin_load(value args, env e) {
         repl_error("load need at least one argument");
 
     do {
-        value file = args->cons.car;
+        value file = car(args);
         if (file->type != TYPE_STRING)
             repl_error("load takes strings as arguments");
 
 	repl_eval_file(file->string, e);
 
 
-        args = args->cons.cdr;
+        args = cdr(args);
     } while (args->type == TYPE_CONS);
 
     return value_new_bool(1);
@@ -236,34 +236,34 @@ value builtin_load(value args, env e) {
 
 value builtin_cons(value args, env e) {
   if(args->type != TYPE_CONS ||
-     args->cons.cdr->type != TYPE_CONS)
+     cdr(args)->type != TYPE_CONS)
     repl_error("cons takes two arguments");
   
-  value first = args->cons.car;
-    value second = args->cons.cdr->cons.car;
+  value first = car(args);
+    value second = cdr(args)->cons.car;
 
     // Allocate new cons cell
     value new_cons = value_alloc(TYPE_CONS);
-    new_cons->cons.car = first;
-    new_cons->cons.cdr = second;
+    car(new_cons) = first;
+    cdr(new_cons) = second;
 
     return new_cons;
 }
 
 value builtin_car(value args, env e) {
   if(args->type != TYPE_CONS ||
-     args->cons.car->type != TYPE_CONS)
+     car(args)->type != TYPE_CONS)
     repl_error("Argument to car not a pair");
   
-  return args->cons.car->cons.car;
+  return car(args)->cons.car;
 }
 
 value builtin_cdr(value args, env e) {
   if(args->type != TYPE_CONS ||
-     args->cons.car->type != TYPE_CONS)
+     car(args)->type != TYPE_CONS)
     repl_error("Argument to cdr not a pair");
   
-  return args->cons.car->cons.cdr;
+  return car(args)->cons.cdr;
 }
 
 //Fist lisp voodo :)
@@ -276,13 +276,13 @@ value builtin_display(value args, env e) {
         repl_error("display need at least one argument");
 
     do {
-        value text = args->cons.car;
+        value text = car(args);
         if (text->type != TYPE_STRING)
             repl_error("display takes strings as arguments");
 
         printf("%s", text->string);
 
-        args = args->cons.cdr;
+        args = cdr(args);
     } while (args->type == TYPE_CONS);
 
     return value_new_bool(1);
@@ -298,7 +298,7 @@ value builtin_debug(value args, env e) {
   printf("\n0x%p\n", args);
 
   if(args->type == TYPE_CONS)
-    printf("0x%p\n", args->cons.car);
+    printf("0x%p\n", car(args));
   
   value_print(args);
   printf("\n\n");
