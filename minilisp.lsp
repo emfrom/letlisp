@@ -25,6 +25,31 @@
         (and (pair? x)
              (list? (cdr x))))))
 
+;; Functions on (define (func a1 a2 ..) form
+(define (foldl proc init lst)
+  (if (null? lst)
+      init
+      (fold proc (proc
+		  init
+		  (car lst))
+	    (cdr lst))))
+
+(define (foldr proc init lst)
+  (if (null? lst)
+      init
+      (proc (car lst) (foldr proc init (cdr lst)))))
+
+(define fold foldl)
+
+
+;; Recursive function defines
+(define (length lst)
+  (define (len-iter lst acc)
+    (if (null? lst)
+        acc
+        (len-iter (cdr lst) (+ acc 1))))
+  (len-iter lst 0))
+
 ;; ;; Testing let*q
 ;; (define (let* bindings body)
 ;;     (if (null? bindings)
@@ -57,10 +82,16 @@
              1
              (* n (fact (- n 1))))))))
 
-(define (abs x) (if (<= x 0) (- x) x))
-(define (average x y) 
-  (/ (+ x y) 2))
+(define (abs x)
+    (if (<= x 0)
+	(- x)
+	x))
 
+(define (sum lst)
+  (fold + 0 lst))
+(define (average lst)
+    (/ (sum lst)
+       (length lst)))
 
 ;;; Tests
 (load "test.lsp")

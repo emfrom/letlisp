@@ -240,7 +240,7 @@ value builtin_cons(value args, env e) {
     repl_error("cons takes two arguments");
   
   value first = car(args);
-    value second = cdr(args)->cons.car;
+  value second = cadr(args);
 
     // Allocate new cons cell
     value new_cons = value_alloc(TYPE_CONS);
@@ -255,7 +255,7 @@ value builtin_car(value args, env e) {
      car(args)->type != TYPE_CONS)
     repl_error("Argument to car not a pair");
   
-  return car(args)->cons.car;
+  return caar(args);
 }
 
 value builtin_cdr(value args, env e) {
@@ -263,7 +263,7 @@ value builtin_cdr(value args, env e) {
      car(args)->type != TYPE_CONS)
     repl_error("Argument to cdr not a pair");
   
-  return car(args)->cons.cdr;
+  return cdar(args);
 }
 
 //Fist lisp voodo :)

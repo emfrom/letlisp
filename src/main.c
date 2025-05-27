@@ -305,12 +305,12 @@ value eval_if(value args, env env) {
   if (cdr(args)->type != TYPE_CONS)
     repl_error("if: missing then branch");
 
-  value then_branch = cdr(args)->cons.car;
+  value then_branch = cadr(args);
 
   // Extract else branch (optional)
   value else_branch = value_new_nil();
-  if (cdr(args)->cons.cdr->type == TYPE_CONS)
-    else_branch = cdr(args)->cons.cdr->cons.car;
+  if (cddr(args)->type == TYPE_CONS)
+    else_branch = car(cddr(args));
 
   // Evaluate predicate
   value cond = eval(predicate, env);
