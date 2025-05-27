@@ -22,3 +22,6 @@ tags
 /minilisp_history
 /*.lsp
 
+/.letlisp_history
+/.Po
+/letlisp

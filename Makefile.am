@@ -5,8 +5,8 @@ AM_CPPFLAGS = -I$(srcdir)/src -Isrc \
 	$(GC_CFLAGS) \
 	$(GMP_CFLAGS)
 
-bin_PROGRAMS = minilisp
-minilisp_SOURCES = \
+bin_PROGRAMS = letlisp
+letlisp_SOURCES = \
 	src/main.c \
 	src/repl.c \
 	src/parser.c \
@@ -15,7 +15,7 @@ minilisp_SOURCES = \
 	src/env.c
 
 
-minilisp_LDADD = \
+letlisp_LDADD = \
 	$(READLINE_LIBS) \
 	$(GC_LIBS) \
 	$(GMP_LIBS)

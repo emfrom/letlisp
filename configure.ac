@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT([minilisp], [0.0.2], [vertlaforet@protonmail.com])
+AC_INIT([letlisp], [0.1.1], [vertlaforet@protonmail.com])
 AM_INIT_AUTOMAKE([foreign subdir-objects -Wall])
 AC_PROG_CC
 PKG_PROG_PKG_CONFIG

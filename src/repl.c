@@ -19,7 +19,7 @@
 jmp_buf repl_env;
 
 
-#define HISTORY_FILE "minilisp_history"
+#define HISTORY_FILE ".letlisp_history"
 
 void repl_error(const char *fmt, ...) {
   va_list ap;
@@ -73,7 +73,7 @@ void repl(env e) {
 
     //Read 
     char *input_string;
-    input_string = readline("minilisp> ");
+    input_string = readline("letlisp> ");
     
     if(!input_string) //EOF
       break;

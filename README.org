@@ -1,0 +1,58 @@
+#+TITLE: LET LISP
+#+AUTHOR: E.M. From <vertlaforet@protonmail.com>
+
+Welcome fellow lambda enthousiast
+
+Is it fast? Is it the best? LETs find out.
+
+* Why LET LESP
+L.E.T. = List Eating Trampoline
+
+Since the name closure is already taken and lambda lisp seems a bit greedy.
+Also, it _reduces_ LISP (no AST) so there will be no oxidation
+Also, the stack is dead. Long live the stack.
+
+* 
+
+A LISP (that will at some point in the future be) featuring:
+- lazy evaluation
+- multithreaded core
+- thunk trampoline execution style
+- resource id based evaluation (no stack)
+- continuation passing
+- pure, minus local environment (for brevity) (maybe only as let sugar)
+- State and io via delimited continuations (probably promise style)
+- Parser and repl under lisp control
+- Actual ABI/modules (cause haskell and rust piss me off royally)
+- Incidental _and_ explicit memoisation
+- Scheme R7-small:ish (unless it violates previously stated goals)
+
+* Stuff todo
+** TODO Trampoline
+Ring of thunks to perform
+Adds executor threads as needed ("add thread" markers in ring)
+
+** TODO Memory
+Ref counting
+Caching allocs 
+
+** TODO BIIG Hashtable for references
+All results stored in one table
+Dependencies tracked for each thunk
+
+** TODO continuation passing eval
+
+** TODO Parser and repl
+Parser is integral, (parse <something) is the start of execution
+
+#+begin_src letlisp
+(define (parse)
+   (display "Penguins!"))
+#+end_src
+
+Repl is integral (repl) reads using readline and calls parse
+
+** TODO Compiler
+Compile via reference, big hashes needed
+Link to ELF libraries
+

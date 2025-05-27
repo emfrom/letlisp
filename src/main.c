@@ -520,7 +520,7 @@ int main() {
 
   // Load lisp startup
   if (setjmp(repl_env) == 0)
-    repl_eval_file("minilisp.lsp", global_env);
+    repl_eval_file("letlisp.lsp", global_env);
   else
     fprintf(stderr, "Error in startup file\n");
 
