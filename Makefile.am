@@ -11,7 +11,8 @@ minilisp_SOURCES = \
 	src/repl.c \
 	src/parser.c \
 	src/builtin.c \
-	src/memory.c
+	src/memory.c \
+	src/env.c
 
 
 minilisp_LDADD = \
