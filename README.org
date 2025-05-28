@@ -32,6 +32,29 @@ A LISP (that will at some point in the future be) featuring:
 Ring of thunks to perform
 Adds executor threads as needed ("add thread" markers in ring)
 
+*** Eval
+The forwards and backwards, and up and down in the AST is mindboggling:
+
+In CPS style
+(eval expr env cont)
+
+normally ends with a call (cont <some_result>)
+->walking up/left
+
+Converting the AST into thunk does the exact opposite
+i.e
+return <some_result>
+
+becomes:
+generate a thunk, dependant on <some_result>
+-> walking down/right the AST
+
+*Thoughts for now*
+Read more, stop thinking like traditiona eval 
+Goal is CPS with dependencies
+
+
+
 ** TODO Memory
 Ref counting
 Caching allocs 
