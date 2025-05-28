@@ -5,14 +5,18 @@ Welcome fellow lambda enthousiast
 
 Is it fast? Is it the best? LETs find out.
 
-* Why LET LESP
+
+This README is my current thoughts on this project, with unanswered question and rambling. Consume at your own risk.
+
+
+* Why LET 
 L.E.T. = List Eating Trampoline
 
 Since the name closure is already taken and lambda lisp seems a bit greedy.
 Also, it _reduces_ LISP (no AST) so there will be no oxidation
 Also, the stack is dead. Long live the stack.
 
-* 
+* Lisp :)
 
 A LISP (that will at some point in the future be) featuring:
 - lazy evaluation
@@ -33,6 +37,9 @@ Ring of thunks to perform
 Adds executor threads as needed ("add thread" markers in ring)
 
 *** Eval
+
+**** CPS <-> Thunking
+
 The forwards and backwards, and up and down in the AST is mindboggling:
 
 In CPS style
@@ -50,8 +57,60 @@ generate a thunk, dependant on <some_result>
 -> walking down/right the AST
 
 *Thoughts for now*
-Read more, stop thinking like traditiona eval 
+Read more, stop thinking like traditional eval 
 Goal is CPS with dependencies
+
+
+**** More on CPS 
+
+evaluation is in reality:
+
+preamble -> eval -> continuation
+
+dependency (assuming purity)
+preamble <- eval <- continuation
+
+So eval takes dependencies and evalation order and creates a doubly linked list
+
+Each eval thunk produces an id for it's result
+Each eval thunk maintains a list of results it depends on
+
+The trampoline goes around the thunk ring and calls thunks where all results are all done
+
+eval collects this information, somehow
+a continuation is what to do with the result
+
+I dont need to reify any point
+- AST with root at current eval
+- Environment
+
+*The continuation literally IS the result id that any thunk in the execution queue will be waiting for!*
+
+#+begin_src
+struct thunk {
+   id result_id; //Is the continuation, where the thunk is to place the outcome of it's hard work 
+   id *dependencies; //Is what the thunk is waiting on to execute
+  ...
+}
+#+end_src
+
+Do I ever need more than a few dependencies?
+Do I even need more than one?
+
+#+begin_src
+struct thunk {
+   id continuation;  
+   id dependency; 
+  ...
+}
+  
+#+end_src
+
+Allocate a compute thunk
+- generate it's id (xor:ing galore) 
+- assign result_ = continuation
+- pass it's id as the continuation to any eval thunks it queues.
+   
 
 
 
