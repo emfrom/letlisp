@@ -11,6 +11,8 @@
 
 #include "memory.h"
 
+//TODO: BUG: Check all thread function return values
+
 /**
  * Hashtable
  *

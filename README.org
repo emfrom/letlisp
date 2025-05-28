@@ -13,6 +13,7 @@ This README is my current thoughts on this project, with unanswered question and
 L.E.T. = List Eating Trampoline
 
 Since the name closure is already taken and lambda lisp seems a bit greedy.
+
 Also, it _reduces_ LISP (no AST) so there will be no oxidation
 Also, the stack is dead. Long live the stack.
 
@@ -32,11 +33,91 @@ A LISP (that will at some point in the future be) featuring:
 - Scheme R7-small:ish (unless it violates previously stated goals)
 
 * Stuff todo
+
+
 ** TODO Trampoline
 Ring of thunks to perform
-Adds executor threads as needed ("add thread" markers in ring)
 
-*** Eval
+*** TODO Scheduling
+
+The scheduler passes through the list of thunks, last to zero
+On each:
+- try rd lock
+  - if that fails it moves on to the previous.
+- when if finds a ready thunk
+  - activates a worker on that thunk
+  - then releases the lock
+
+Workers, 
+- takes a writelock on the thunk 
+- does the work
+- cleanup
+- release lock
+- return to pool
+
+Workers signal scheduler to rescan with a pthread signal 
+
+When adding a thunk, the adding thread (which will be a worker executing an eval thunk)
+- Scans with try_wrlock on slots
+- write lock on the first available thunk
+- Sets all information
+- Releases the write lock
+
+If it allocated the last available block (or there is only some threshold available) signal the scheduler to make some space
+
+The thunk trampline can keep a variable (under rw lock).
+- After a worker finishes cleaning up a thunk and signalling the scheduler to scan
+  - it can update last, if
+    - it just finished the last one
+    - Importantly, to prevent a race workers test is = and adders test is > 
+
+when starting, the scheduler
+- takes rd_lock on that variable
+- copies it.
+- There is a small race here since writers have higher prio than readers, but
+  - Only the scheduler can start workers, and only workers do write operations
+
+****** TODO Will this race cause bottlnecks? 
+
+
+*** TODO Storage
+For the memory of the trampoline
+- a list of arrays
+  - First array is in same memory as trampoline data structures, 
+  - each array is small enough to fit in an L1 or L2 cache frame
+  - Scheduler always keeps an entire free arraay in reserve
+
+
+*** TODO Workers
+liburing for io
+libco for microthreds
+
+Needs portable sync, i.e. atoms/futexes
+
+Process, thread and microthred need schedulers
+Existing options dont seem to jive with eachother, uring is a must
+
+**** TODO Check out libuio 
+
+
+** TODO Memory
+Ref counting
+Caching allocs
+All work in 64 alignment
+
+** TODO BIIG Hashtable for references
+All results stored in one table
+Dependencies tracked for each thunk
+
+*** TODO Rework hashtable
+Neen microthreads level control with atoms or futex
+Need 128 bit id
+  - optionally use 80bits and strip pointers to 48
+atomlock on members
+inlineable loockup
+
+
+** TODO Eval
 
 **** CPS <-> Thunking
 
@@ -110,19 +191,9 @@ Allocate a compute thunk
 - generate it's id (xor:ing galore) 
 - assign result_ = continuation
 - pass it's id as the continuation to any eval thunks it queues.
+
    
 
-
-
-** TODO Memory
-Ref counting
-Caching allocs 
-
-** TODO BIIG Hashtable for references
-All results stored in one table
-Dependencies tracked for each thunk
-
-** TODO continuation passing eval
 
 ** TODO Parser and repl
 Parser is integral, (parse <something) is the start of execution
@@ -133,6 +204,8 @@ Parser is integral, (parse <something) is the start of execution
 #+end_src
 
 Repl is integral (repl) reads using readline and calls parse
+
+There is a R7s function for this, use good names
 
 ** TODO Compiler
 Compile via reference, big hashes needed
