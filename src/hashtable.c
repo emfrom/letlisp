@@ -27,14 +27,13 @@ typedef union {
 
 typedef uint32_t hash_t;
 
-typedef struct {
+typedef struct value_s {
   uint128_t id;
   hash_t hash;
-  
 } *value;
 
 
-static inline bool uint128_cmp(const uint128_t *a, const uint128_t *b) {
+static inline bool uint128_equal(const uint128_t *a, const uint128_t *b) {
   //Force 128 comparison
   return a->w == b->w;
 }
@@ -56,8 +55,10 @@ struct hashtable_entry_s {
   atomic_flag lock;
 };
 
-const value EMPTY = NULL;
-const value DEAD = (value)UINTPTR_MAX;
+const value EMPTY_SLOT = NULL;
+static struct value_s tombstone;
+const value DEAD_SLOT = &tombstone;
+
 
 #define HASHMASK 0x3FFFFF
 #define HASHTABLE_SIZE (HASHMASK + 1)
@@ -96,120 +97,126 @@ void hashtable_destroy() {
   hashtable = NULL;
 }
 
+
+
+
 // Open with linear probing
-void hashtable_set(value value) {
-  assert(value != EMPTY &&
-	 value != DEAD);
+void hashtable_set(value new) {
+  assert(new != EMPTY_SLOT &&
+	 new != DEAD_SLOT);
   
-  hash_t hash_position;
-  hash_position = value->hash;
+  hash_t index;
+  index = new->hash % HASHTABLE_SIZE;
 
   hashtable_entry entry;
-  entry = hashtable + value->hash;
+  entry = hashtable + index;
 
   
   //Lock 
   lock_lock(&entry->lock);
   
   // Probe
-  while(entry->value != EMPTY &&
-	 entry->value != DEAD &&
-	!uint128_cmp(&value->id, &entry->value->id)) {
-    hash_position = (hash_position + 1) % HASHTABLE_SIZE;
-    entry = hashtable + hash_position;
+  while(entry->value != EMPTY_SLOT &&
+	entry->value != DEAD_SLOT &&
+	!uint128_equal(&new->id, &entry->value->id)) {
+
+    lock_unlock(&entry->lock);
+    index = (index + 1) % HASHTABLE_SIZE;
+    entry = hashtable + index;
     
     lock_lock(&entry->lock);
   }
 
-  entry->value = value;
+  entry->value= new;
   
   // all done 
   lock_unlock(&entry->lock);
   return;
 }
 
-void hashtable_delete(uint64_t id) {
-  uint32_t hash = hashtable_hash(id);
-  pthread_rwlock_wrlock(locks + hash);
+void hashtable_delete(value delete) {
+  assert(delete != EMPTY_SLOT &&
+	 delete != DEAD_SLOT);
+  
+  hash_t index;
+  index = delete->hash % HASHTABLE_SIZE;
 
-  hashtable_entry entry = &hashtable[hash];
+  hashtable_entry entry;
+  entry = hashtable + index;
 
-  //First?
-  if (entry->id == id) {
-    if (entry->next) {
-      hashtable_entry next = entry->next;
-      entry->id = next->id;
-      entry->value = next->value;
-      entry->next = next->next;
-      gcx_free(next);
-    } else {
-      // No chain — just clear the slot
-      entry->id = 0;
-      entry->value = NULL;
-      entry->next = NULL;
-    }
-
-    pthread_rwlock_unlock(locks + hash);
-    return;
+  
+  //Lock 
+  lock_lock(&entry->lock);
+  
+  // Probe
+  while(entry->value != EMPTY_SLOT &&
+	(entry->value == DEAD_SLOT || !uint128_equal(&delete->id, &entry->value->id))) {
+    lock_unlock(&entry->lock);
+    index = (index + 1) % HASHTABLE_SIZE;
+    entry = hashtable + index;
+    
+    lock_lock(&entry->lock);
   }
 
-  // Scan chain
-  hashtable_entry prev = entry;
-
-  while (entry) {
-    if (entry->id == id) {
-      prev->next = entry->next;
-      gcx_free(entry);
-      pthread_rwlock_unlock(locks + hash);
-      return;
-    }
-    prev = entry;
-    entry = entry->next;
-  }
-
-  pthread_rwlock_unlock(locks + hash);
+  if(entry->value != EMPTY_SLOT)
+    entry->value = DEAD_SLOT;
+  
+  lock_unlock(&entry->lock);
+  
+  return;
 }
 
-void *hashtable_get(uint64_t id) {
-  uint32_t hash = hashtable_hash(id);
-  pthread_rwlock_rdlock(locks + hash);
+value hashtable_get(value find) {
+  assert(find != EMPTY_SLOT &&
+	 find != DEAD_SLOT);
+  
+  hash_t index;
+  index = find->hash % HASHTABLE_SIZE;
 
-  hashtable_entry entry = &hashtable[hash];
-  while (entry != NULL) {
-    if (entry->id == id) {
-      void *value = entry->value;
-      pthread_rwlock_unlock(locks + hash);
-      return value;
-    }
-    entry = entry->next;
+  hashtable_entry entry;
+  entry = hashtable + index;
+
+  
+  //Lock 
+  lock_lock(&entry->lock);
+  
+  // Probe
+  while(entry->value != EMPTY_SLOT &&
+ 	(entry->value == DEAD_SLOT || !uint128_equal(&find->id, &entry->value->id))) {
+
+    lock_unlock(&entry->lock);
+    index = (index + 1) % HASHTABLE_SIZE;
+    entry = hashtable + index;
+    
+    lock_lock(&entry->lock);
   }
 
-  pthread_rwlock_unlock(locks + hash);
-  return NULL; // Not found
+  register value retval = entry->value;
+  
+  lock_unlock(&entry->lock);
+
+  //Will be NULL for EMPTY_SLOT
+  //TODO: declare properly in include file
+  return retval;
 }
 
 #ifdef UNIT_TEST
 
+ 
 #include <unistd.h>
 #include <fcntl.h>
 
 
 #define COUNT 10000
-#define COLLISIONS 100
-
-uint64_t find_hash_collision(uint64_t original) {
-  uint32_t target_hash = hashtable_hash(original);
-    for (uint64_t candidate = original + 1; ; candidate++) {
-        if (hashtable_hash(candidate) == target_hash) {
-            return candidate;
-        }
-    }
+static void print_uint128(uint128_t id) {
+  printf("0x%016llx%016llx", (unsigned long long)id.h.msb, (unsigned long long)id.h.lsb);
 }
 
 int main() {
   printf("Test: reading %d uint64_t from /dev/random: ", COUNT);
 
-  uint64_t *data = malloc(COUNT * sizeof(uint64_t));
+  ssize_t bytes_needed = COUNT * sizeof(struct value_s);
+  value data = malloc(bytes_needed);
   assert(data);
 
   int fd = open("/dev/random", O_RDONLY);
@@ -218,7 +225,6 @@ int main() {
     exit(EXIT_FAILURE);
   }
 
-  ssize_t bytes_needed = COUNT * sizeof(uint64_t);
   ssize_t offset = 0;
 
   while (offset < bytes_needed) {
@@ -231,91 +237,126 @@ int main() {
   }
 
   close(fd);
+  
   printf("✔\n");
+
 
   printf("Hashtable initialising: ");
   hashtable_init();
   printf("✔\n");
 
   printf("Adding entries: ");
-  for (uint64_t i = 1; i < COUNT; ++i) {
-    hashtable_set(data[i], (void *)i); 
+  for (uint64_t i = 0; i < COUNT; ++i) {
+    hashtable_set(&data[i]); 
   }
   printf("✔\n");
 
   printf("Verifying entries: ");
-  for (uint64_t i = 1; i < COUNT; ++i) {
-    void *value = hashtable_get(data[i]);
-    if (value != (void *)i) {
-      fprintf(stderr, "❌ Verification failed for key %llu\n", (unsigned long long)data[i]);
+  for (uint64_t i = 0; i < COUNT; ++i) {
+    value found = hashtable_get(&data[i]);
+    if (found == EMPTY_SLOT || found == DEAD_SLOT) {
+      fprintf(stderr, "❌ Verification failed: entry missing for key ");
+      print_uint128(data[i].id);
+      fprintf(stderr, "\n");
+      exit(EXIT_FAILURE);
+    }
+    if (!uint128_equal(&found->id, &data[i].id)) {
+      fprintf(stderr, "❌ Verification failed: wrong key found for ");
+      print_uint128(data[i].id);
+      fprintf(stderr, "\n");
       exit(EXIT_FAILURE);
     }
   }
   printf("✔\n");
 
   printf("Deleting entries: ");
-  for (int i = 1; i < COUNT; ++i) {
-    hashtable_delete(data[i]);
+  for (int i = 0; i < COUNT; ++i) {
+    hashtable_delete(&data[i]);
   }
   printf("✔\n");
 
-
-  printf("Verifying deletions (get): ");
-  for (int i = 1; i < COUNT; ++i) {
-    if (hashtable_get(data[i]) != NULL) {
-      fprintf(stderr, "❌ Deletion verification (get) failed for key %llu\n", (unsigned long long)data[i]);
+  printf("Verifying deletions: ");
+  for (uint64_t i = 0; i < COUNT; ++i) {
+    value found = hashtable_get(&data[i]);
+    if (found != EMPTY_SLOT && found != DEAD_SLOT) {
+      fprintf(stderr, "❌ Deletion verification (get) failed for key ");
+      print_uint128(data[i].id);
+      fprintf(stderr, "\n");
       exit(EXIT_FAILURE);
     }
   }
   printf("✔\n");
 
   printf("Verifying deletions (memory): ");
-  for (uint64_t i = 1; i < HASHTABLE_SIZE; ++i) 
-    if(hashtable[i].id ||
-       hashtable[i].value ||
-       hashtable[i].next) {
-      fprintf(stderr, "❌ Deletion verification (mem)failed for key %llu\n", (unsigned long long)data[i]);
+  for (uint64_t i = 0; i < HASHTABLE_SIZE; ++i)
+    if (hashtable[i].value &&
+	hashtable[i].value != DEAD_SLOT) {
+      fprintf(stderr, "❌ Deletion verification (mem)failed for key ");
+      print_uint128(hashtable[i].value->id);
+      fprintf(stderr, "\n");
       exit(EXIT_FAILURE);
     }
   printf("✔\n");
-  
-  printf("Redeleting nonexistant entries: ");
-  for (int i = 1; i < COUNT; ++i) {
-    hashtable_delete(data[i]);
+
+  printf("Creating collisions: ");
+  for (uint64_t i = 0; i + 1 < COUNT; i += 2) {
+    data[i].hash = data[i + 1].hash;
   }
-  printf("✔\n");
-
-
-  printf("Readding entries: ");
-  for (uint64_t i = 1; i < COUNT; ++i) {
-    hashtable_set(data[i], (void *)i); 
-  }
-  printf("✔\n");
-
-  printf("Finding collisions: ");
-  uint64_t *collisions = malloc(COLLISIONS * sizeof(uint64_t));
-  assert(collisions);
-
-  for (uint64_t i = 1; i < COLLISIONS; i++) 
-    collisions[i] = find_hash_collision(data[i]);
   printf("✔\n");
 
   printf("Adding collisions: ");
-  for (uint64_t i = 1; i < COLLISIONS; i++)
-    hashtable_set(data[i], (void *)i); 
+  for (uint64_t i = 0; i < COUNT; i++) {
+    hashtable_set(&data[i]);
+  }
   printf("✔\n");
 
   printf("Removing collisions tail first: ");
-  for (uint64_t i = 1; i < COLLISIONS << 2; i++) {
-    hashtable_delete(collisions[i]);
-    hashtable_delete(data[i]);
+  for (uint64_t i = 0; i + 1 < COUNT >> 1; i++) {
+    hashtable_delete(&data[i+1]);
+    hashtable_delete(&data[i]);
+  }
+  printf("✔\n");
+
+  printf("Readding collisions: ");
+  for (uint64_t i = 0; i + 1 < COUNT >> 1; i++) {
+    hashtable_set(&data[i]);
   }
   printf("✔\n");
 
   printf("Removing collisions head first: ");
-  for (uint64_t i = COLLISIONS << 2; i < COLLISIONS; i++) {
-    hashtable_delete(data[i]);
-    hashtable_delete(collisions[i]);
+  for (uint64_t i = 0; i < COUNT; i++) {
+    hashtable_delete(&data[i]);
+  }
+  printf("✔\n");
+
+  printf("Verifying deletions (get): ");
+  for (uint64_t i = 0; i < COUNT; ++i) {
+    value found = hashtable_get(&data[i]);
+    if (found != EMPTY_SLOT && found != DEAD_SLOT) {
+      fprintf(stderr, "❌ Deletion verification (get) failed for key ");
+      print_uint128(data[i].id);
+      fprintf(stderr, "\n");
+      exit(EXIT_FAILURE);
+    }
+  }
+  printf("✔\n");
+
+    printf("Verifying deletions (memory): ");
+  for (uint64_t i = 0; i < HASHTABLE_SIZE; ++i)
+    if (hashtable[i].value &&
+	hashtable[i].value != DEAD_SLOT) {
+      fprintf(stderr, "❌ Deletion verification (mem)failed for key ");
+      print_uint128(hashtable[i].value->id);
+      fprintf(stderr, "\n");
+      exit(EXIT_FAILURE);
+    }
+  printf("✔\n");
+
+
+
+  printf("Redeleting non-existent entries: ");
+  for (uint64_t i = 0; i < COUNT; ++i) {
+    hashtable_delete(&data[i]);
   }
   printf("✔\n");
 
@@ -323,7 +364,6 @@ int main() {
   hashtable_destroy();
   printf("✔\n");
 
-  free(collisions);
   free(data);
   printf("\n✔ Tests completed successfully ✔\n");
 }

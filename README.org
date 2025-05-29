@@ -106,14 +106,9 @@ Caching allocs
 All work in 64 alignment
 
 ** TODO BIIG Hashtable for references
-All results stored in one table
-Dependencies tracked for each thunk
+
 
 *** TODO Rework hashtable
-Neen microthreads level control with atoms or futex
-Need 128 bit id
-  - optionally use 80bits and strip pointers to 48
-atomlock on members
 inlineable loockup
 
 
