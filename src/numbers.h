@@ -3,6 +3,6 @@
 
 #include <gmp.h>
 
-mpq_ptr num_exact_new ();
+mpq_ptr num_exact_new();
 
 #endif

@@ -1,11 +1,11 @@
+#include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <assert.h>
 
+#include "env.h"
 #include "memory.h"
 #include "value.h"
-#include "env.h"
 
 int is_special(const char *sym);
 int bool_isnil(value value, env e);
@@ -15,6 +15,7 @@ int bool_isnil(value value, env e);
  */
 value value_alloc(valueType type) {
   value v = gcx_malloc(sizeof(struct value_s));
+
   v->type = type;
   return v;
 }
@@ -49,6 +50,7 @@ value value_new_bool(int b) {
 
 value value_new_closure(value params, value body, env e) {
   value v = value_alloc(TYPE_CLOSURE);
+
   v->clo.params = params;
   v->clo.body = body;
   v->clo.e = e;
@@ -69,10 +71,10 @@ value value_new_symbol_nolookup(const char *text) {
   v->sym = strdup(text);
 
   /* fprintf(stderr, "New symbol %s: ( %s , %p)\n",
-          text,
-          v->sym,
-          v);
-  */
+     text,
+     v->sym,
+     v);
+   */
 
   return v;
 }
@@ -95,6 +97,7 @@ value value_new_symbol(const char *text, env e) {
 
 value value_new_cons(value car, value cdr) {
   value v = value_alloc(TYPE_CONS);
+
   car(v) = car;
   cdr(v) = cdr;
   return v;
@@ -110,6 +113,7 @@ value value_new_exact(mpq_ptr number) {
 
 value value_new_function(function f) {
   value v = value_alloc(TYPE_FUNCTION);
+
   v->fn = f;
   return v;
 }
