@@ -9,42 +9,13 @@
 #include <stdbool.h>
 
 #include "memory.h"
-
-// TODO: Remove placeholders
-#warning "PLACEHOLDERS FOR U128 and value"
-struct uint128_s {
-  uint64_t lsb;
-  uint64_t msb;
-};
-
-typedef union {
-  __uint128_t whole;
-  __uint128_t w; 
-  struct uint128_s halfs;
-  struct uint128_s h;
-} uint128_t;
-
-
-typedef uint32_t hash_t;
-
-typedef struct value_s {
-  uint128_t id;
-  hash_t hash;
-} *value;
-
-
-static inline bool uint128_equal(const uint128_t *a, const uint128_t *b) {
-  //Force 128 comparison
-  return a->w == b->w;
-}
+#include "hashtable.h"
 
 /**
  * Hashtable
  *
  * Quick hack, but might be fast :)
  */
-
-
 
 typedef struct hashtable_entry_s *hashtable_entry;
 typedef atomic_flag lock_t;
@@ -76,6 +47,11 @@ static inline void lock_lock(lock_t *lock) {
 
 static inline void lock_unlock(lock_t *lock) {
     atomic_flag_clear_explicit(lock, memory_order_release);
+}
+
+static inline int uint128_equal(const uint128_t *a, const uint128_t *b) {
+  //Force 128 comparison
+  return a->w == b->w;
 }
 
 
@@ -200,8 +176,9 @@ value hashtable_get(value find) {
   return retval;
 }
 
+ 
 #ifdef UNIT_TEST
-
+  
  
 #include <unistd.h>
 #include <fcntl.h>
