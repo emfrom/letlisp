@@ -109,7 +109,7 @@ All work in 64 alignment
 
 
 *** TODO Rework hashtable
-inlineable loockup
+inlineable lockup
 
 
 ** TODO Eval

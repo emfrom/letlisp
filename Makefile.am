@@ -14,7 +14,8 @@ letlisp_SOURCES = \
 	src/builtin.c \
 	src/memory.c \
 	src/env.c \
-	src/hashtable.c
+	src/hashtable.c \
+	src/value.c
 
 
 letlisp_LDADD = \
